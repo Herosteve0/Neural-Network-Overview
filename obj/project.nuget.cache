@@ -1,14 +1,14 @@
 {
   "version": 2,
-  "dgSpecHash": "ocyvMVtUHVo=",
+  "dgSpecHash": "oV9UZ8/0Sew=",
   "success": true,
-  "projectFilePath": "D:\\mix\\Github Repositories\\Neurtal-Network-Overview\\Neurtal-Network-Overview.csproj",
+  "projectFilePath": "D:\\GitHub Repositories\\Neurtal-Network-Overview\\Neurtal-Network-Overview.csproj",
   "expectedPackageFiles": [
-    "C:\\Users\\MA\\.nuget\\packages\\ilgpu\\1.5.3\\ilgpu.1.5.3.nupkg.sha512",
-    "C:\\Users\\MA\\.nuget\\packages\\ilgpu.algorithms\\1.5.3\\ilgpu.algorithms.1.5.3.nupkg.sha512",
-    "C:\\Users\\MA\\.nuget\\packages\\microsoft.win32.systemevents\\10.0.5\\microsoft.win32.systemevents.10.0.5.nupkg.sha512",
-    "C:\\Users\\MA\\.nuget\\packages\\opencl.net\\2.2.9\\opencl.net.2.2.9.nupkg.sha512",
-    "C:\\Users\\MA\\.nuget\\packages\\system.drawing.common\\10.0.5\\system.drawing.common.10.0.5.nupkg.sha512"
+    "C:\\Users\\U S E R\\.nuget\\packages\\ilgpu\\1.5.3\\ilgpu.1.5.3.nupkg.sha512",
+    "C:\\Users\\U S E R\\.nuget\\packages\\ilgpu.algorithms\\1.5.3\\ilgpu.algorithms.1.5.3.nupkg.sha512",
+    "C:\\Users\\U S E R\\.nuget\\packages\\microsoft.win32.systemevents\\10.0.5\\microsoft.win32.systemevents.10.0.5.nupkg.sha512",
+    "C:\\Users\\U S E R\\.nuget\\packages\\opencl.net\\2.2.9\\opencl.net.2.2.9.nupkg.sha512",
+    "C:\\Users\\U S E R\\.nuget\\packages\\system.drawing.common\\10.0.5\\system.drawing.common.10.0.5.nupkg.sha512"
   ],
   "logs": []
 }

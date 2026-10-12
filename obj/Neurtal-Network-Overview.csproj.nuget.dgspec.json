@@ -1,23 +1,23 @@
 {
   "format": 1,
   "restore": {
-    "D:\\mix\\Github Repositories\\Neurtal-Network-Overview\\Neurtal-Network-Overview.csproj": {}
+    "D:\\GitHub Repositories\\Neurtal-Network-Overview\\Neurtal-Network-Overview.csproj": {}
   },
   "projects": {
-    "D:\\mix\\Github Repositories\\Neurtal-Network-Overview\\Neurtal-Network-Overview.csproj": {
+    "D:\\GitHub Repositories\\Neurtal-Network-Overview\\Neurtal-Network-Overview.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\mix\\Github Repositories\\Neurtal-Network-Overview\\Neurtal-Network-Overview.csproj",
+        "projectUniqueName": "D:\\GitHub Repositories\\Neurtal-Network-Overview\\Neurtal-Network-Overview.csproj",
         "projectName": "Neurtal-Network-Overview",
-        "projectPath": "D:\\mix\\Github Repositories\\Neurtal-Network-Overview\\Neurtal-Network-Overview.csproj",
-        "packagesPath": "C:\\Users\\MA\\.nuget\\packages\\",
-        "outputPath": "D:\\mix\\Github Repositories\\Neurtal-Network-Overview\\obj\\",
+        "projectPath": "D:\\GitHub Repositories\\Neurtal-Network-Overview\\Neurtal-Network-Overview.csproj",
+        "packagesPath": "C:\\Users\\U S E R\\.nuget\\packages\\",
+        "outputPath": "D:\\GitHub Repositories\\Neurtal-Network-Overview\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
         ],
         "configFilePaths": [
-          "C:\\Users\\MA\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Users\\U S E R\\AppData\\Roaming\\NuGet\\NuGet.Config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],
@@ -49,7 +49,7 @@
           "auditLevel": "low",
           "auditMode": "all"
         },
-        "SdkAnalysisLevel": "10.0.400"
+        "SdkAnalysisLevel": "10.0.300"
       },
       "frameworks": {
         "net10.0-windows7.0": {
@@ -89,7 +89,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.401/PortableRuntimeIdentifierGraph.json",
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.301/PortableRuntimeIdentifierGraph.json",
           "packagesToPrune": {
             "Microsoft.CSharp": "(,4.7.32767]",
             "Microsoft.VisualBasic": "(,10.4.32767]",
