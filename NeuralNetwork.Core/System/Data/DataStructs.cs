@@ -1,4 +1,4 @@
-namespace NeuralNetwork.Core.Data;
+namespace NeuralNetwork.Core.System.Data;
 
 public readonly record struct DataSample<T>(T[] Values, int Label) {
     public T[] LabelArray(int size, T value) {
@@ -17,37 +17,42 @@ public interface IDataBatch<TSelf> where TSelf : IDataBatch<TSelf> {
     public void Shuffle(Random random);
 }
     
-public abstract class BatchBase<TSelf, TItem>(TItem[] data) : IDataBatch<TSelf> where TSelf : BatchBase<TSelf, TItem> {
-    public readonly TItem[] Data = data;
+public abstract class BatchBase<TSelf, TItem>(Memory<TItem> data) : IDataBatch<TSelf> where TSelf : BatchBase<TSelf, TItem> {
+    public int Size => data.Length;
+    public ReadOnlySpan<TItem> DataSpan => data.Span;
+    
+    public TItem this[int index] => DataSpan[index];
+    public TItem this[long index] => DataSpan[(int)index];
 
-    public int Size => Data.Length;
-    public TItem this[int index] => Data[index];
-    public TItem this[long index] => Data[index];
+    protected abstract TSelf CreateBatch(Memory<TItem> data);
 
-    protected abstract TSelf CreateBatch(TItem[] data);
-
+    public TSelf Copy() {
+        return CreateBatch(data.ToArray());
+    }
+    
     public TSelf GetSmallBatch(int index, int length) {
-        TItem[] newData = new TItem[length];
-        Array.Copy(Data, index, newData, 0, length);
-        return CreateBatch(newData);
+        Memory<TItem> slicedData = data.Slice(index, length);
+        return CreateBatch(slicedData);
     }
 
     public void Shuffle(Random random) {
-        for (int i = Size - 1; i > 0; i--) {
-            int r = random.Next(0, i);
-            (Data[i], Data[r]) = (Data[r], Data[i]);
+        Span<TItem> span = data.Span;
+        
+        for (int i = span.Length - 1; i > 0; i--) {
+            int r = random.Next(0, i + 1);
+            (span[i], span[r]) = (span[r], span[i]);
         }
     }
 }
 
-public class DataBatch<T>(DataSample<T>[] data) : BatchBase<DataBatch<T>, DataSample<T>>(data) {
-    protected override DataBatch<T> CreateBatch(DataSample<T>[] data) {
+public class DataBatch<T>(Memory<DataSample<T>> data) : BatchBase<DataBatch<T>, DataSample<T>>(data) {
+    protected override DataBatch<T> CreateBatch(Memory<DataSample<T>> data) {
         return new DataBatch<T>(data);
     }
 }
 
-public class GuessBatch<T>(DataGuess<T>[] data) : BatchBase<GuessBatch<T>, DataGuess<T>>(data) {
-    protected override GuessBatch<T> CreateBatch(DataGuess<T>[] data) {
+public class GuessBatch<T>(Memory<DataGuess<T>> data) : BatchBase<GuessBatch<T>, DataGuess<T>>(data) {
+    protected override GuessBatch<T> CreateBatch(Memory<DataGuess<T>> data) {
         return new GuessBatch<T>(data);
     }
 }

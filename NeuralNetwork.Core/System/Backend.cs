@@ -2,11 +2,11 @@
 using ILGPU;
 using ILGPU.Algorithms;
 using ILGPU.Runtime;
-using NeuralNetwork.Core.Data;
+using NeuralNetwork.Core.System.Data;
 
 // ReSharper disable InvalidXmlDocComment
 
-namespace NeuralNetwork.Core;
+namespace NeuralNetwork.Core.System;
 
 using FloatView = ArrayView1D<float, Stride1D.Dense>;
 using FloatViewSingle = ArrayView1D<float, Stride1D.Dense>;

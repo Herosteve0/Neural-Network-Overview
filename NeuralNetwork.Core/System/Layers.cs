@@ -1,6 +1,6 @@
-using NeuralNetwork.Core.Data;
+using NeuralNetwork.Core.System.Data;
 
-namespace NeuralNetwork.Core;
+namespace NeuralNetwork.Core.System;
 
 public abstract class BaseLayer(int size, IBackend backend) : IDisposable {
 

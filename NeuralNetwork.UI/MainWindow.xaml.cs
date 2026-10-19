@@ -1,5 +1,6 @@
 ﻿using System.Windows;
 using NeuralNetwork.Core;
+using NeuralNetwork.Core.System;
 
 namespace NeuralNetwork.UI;
 
@@ -38,7 +39,7 @@ public partial class MainWindow {
     
     private async void StartTraining() {
         try {
-            IProgress<GrowerTracker> progress = new Progress<GrowerTracker>(UpdateInterface);
+            IProgress<GrowerTracker> progress = new Progress<GrowerTracker>(tracker => UpdateInterface(tracker.Snapshot()));
         
             await Task.Run(async () => {
                 Task training = NetworkManager.GroupTraining(true);
@@ -50,7 +51,6 @@ public partial class MainWindow {
                 }
             });
 
-            ConsoleLog("Training completed.");
             _isTraining = false;
             ToggleInterface(false);
         } catch (Exception ex) {
@@ -63,21 +63,15 @@ public partial class MainWindow {
         NetworkManager.ForceStop();
     }
 
-    private void UpdateInterface(GrowerTracker tracker) {
-        UpdateProgress(tracker);
-        LossText.Text = $"Loss: {tracker.AverageLoss:F6}";
-        AccuracyText.Text = $"Accuracy: {tracker.AverageAccuracy}";
+    private void UpdateInterface(GrowerProgressSnapshot snapshot) {
+        UpdateProgress(snapshot);
+        LossText.Text = $"Loss: {snapshot.Loss:F6}";
+        AccuracyText.Text = $"Accuracy: {snapshot.Accuracy}%";
     }
 
-    private void UpdateProgress(GrowerTracker tracker) {
-        int progress = tracker.Progress;
-        float total = tracker.TotalExamples;
-        
-        int gen = tracker.CurrentGeneration;
-        int totalGen = tracker.Generations;
-
-        TotalProgress.Value = (progress / total + gen) / totalGen;
-        TrainingProgress.Value = progress / total;
-        TrainingProgressText.Text = $"Generation: {gen + 1} / {totalGen} | Samples trained over: {progress} / {total}";
+    private void UpdateProgress(GrowerProgressSnapshot snapshot) {
+        TotalProgress.Value = ((float)snapshot.Progress / snapshot.TotalExamples + snapshot.Generation) / snapshot.TotalGenerations;
+        TrainingProgress.Value = (float)snapshot.Progress / snapshot.TotalExamples;
+        TrainingProgressText.Text = $"Generation: {snapshot.Generation + 1} / {snapshot.TotalGenerations} | Samples trained over: {snapshot.Progress} / {snapshot.TotalExamples}";
     }
 }

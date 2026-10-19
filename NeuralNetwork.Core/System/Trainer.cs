@@ -1,23 +1,19 @@
-using NeuralNetwork.Core.Data;
+using NeuralNetwork.Core.System.Data;
 
-namespace NeuralNetwork.Core;
+namespace NeuralNetwork.Core.System;
 
 public class TrainerTracker(int breathTicks) : ScannerTracker(breathTicks) {
     public float LearningRate { get; internal set; }
     public float Loss { get; internal set; }
     public int Accuracy { get; internal set; }
-    public float AverageLoss => Loss / DataSize;
-    public int AverageAccuracy => Progress == 0 ? 0 : Accuracy / Progress;
+    
+    public float AverageLoss => CurrentProgress == 0f ? 0f : Loss / CurrentProgress;
+    public float AverageAccuracy => CurrentProgress == 0 ? 0 : 100f * Accuracy / CurrentProgress;
 
     public override void BeginIteration() {
         base.BeginIteration();
         
         Accuracy = 0;
-    }
-
-    protected override void BreathFunction() {
-        base.BreathFunction();
-
         Loss = 0f;
     }
 }
@@ -121,15 +117,7 @@ public class Trainer(
     int breathTicks,
     LearningRateManager learningInfo,
     bool multiThread = false
-) : NetworkScanner(batchSize, breathTicks) {
-    private float LearningRate => learningInfo;
-
-    public new TrainerTracker Tracker => base.Tracker as TrainerTracker;
-    protected override ScannerTracker CreateTracker(int breathTicks) {
-        return new TrainerTracker(breathTicks);
-    }
-
-
+) : NetworkScanner<TrainerTracker>(batchSize, breathTicks) {
     public async Task Train(Network network, Random random) {
         learningInfo.ResetLearningRate();
         await IterateNetwork(network, random);
@@ -141,7 +129,7 @@ public class Trainer(
     }
 
     protected override void OnBreath() {
-        Tracker.LearningRate = LearningRate;
+        Tracker.LearningRate = learningInfo;
     }
 
     protected override void Process(Network network, DataBatch<float> trainingData) {
@@ -158,19 +146,19 @@ public class Trainer(
             Execute(network, trainingData, scale, loss, accuracy);
         }
 
-        float averageLoss = backend.ReadSingle(loss);
+        float lossValue = backend.ReadSingle(loss);
         loss.Dispose();
         
-        int averageAccuracy = (int)backend.ReadSingle(accuracy);
+        int accuracyValue = (int)backend.ReadSingle(accuracy);
         accuracy.Dispose();
 
-        learningInfo.CheckLoss(averageLoss);
+        learningInfo.CheckLoss(lossValue);
         if (learningInfo.HasDecayed) {
             ForceStop();
         }
 
-        Tracker.Accuracy += averageAccuracy;
-        Tracker.Loss += averageLoss;
+        Tracker.Accuracy += accuracyValue;
+        Tracker.Loss += lossValue;
     }
 
     private void Execute(Network network, DataBatch<float> dataBatch, float scale, ISingleValue loss, ISingleValue accuracy) {

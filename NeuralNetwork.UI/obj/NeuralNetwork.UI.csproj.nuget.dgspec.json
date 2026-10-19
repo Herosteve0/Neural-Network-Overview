@@ -1,23 +1,23 @@
 {
   "format": 1,
   "restore": {
-    "D:\\GitHub Repositories\\Neural-Network-Overview\\NeuralNetwork.UI\\NeuralNetwork.UI.csproj": {}
+    "D:\\mix\\Github Repositories\\Neural-Network-Overview\\NeuralNetwork.UI\\NeuralNetwork.UI.csproj": {}
   },
   "projects": {
-    "D:\\GitHub Repositories\\Neural-Network-Overview\\NeuralNetwork.Core\\NeuralNetwork.Core.csproj": {
+    "D:\\mix\\Github Repositories\\Neural-Network-Overview\\NeuralNetwork.Core\\NeuralNetwork.Core.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\GitHub Repositories\\Neural-Network-Overview\\NeuralNetwork.Core\\NeuralNetwork.Core.csproj",
+        "projectUniqueName": "D:\\mix\\Github Repositories\\Neural-Network-Overview\\NeuralNetwork.Core\\NeuralNetwork.Core.csproj",
         "projectName": "NeuralNetwork.Core",
-        "projectPath": "D:\\GitHub Repositories\\Neural-Network-Overview\\NeuralNetwork.Core\\NeuralNetwork.Core.csproj",
-        "packagesPath": "C:\\Users\\U S E R\\.nuget\\packages\\",
-        "outputPath": "D:\\GitHub Repositories\\Neural-Network-Overview\\NeuralNetwork.Core\\obj\\",
+        "projectPath": "D:\\mix\\Github Repositories\\Neural-Network-Overview\\NeuralNetwork.Core\\NeuralNetwork.Core.csproj",
+        "packagesPath": "C:\\Users\\MA\\.nuget\\packages\\",
+        "outputPath": "D:\\mix\\Github Repositories\\Neural-Network-Overview\\NeuralNetwork.Core\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
         ],
         "configFilePaths": [
-          "C:\\Users\\U S E R\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Users\\MA\\AppData\\Roaming\\NuGet\\NuGet.Config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],
@@ -49,7 +49,7 @@
           "auditLevel": "low",
           "auditMode": "all"
         },
-        "SdkAnalysisLevel": "10.0.300"
+        "SdkAnalysisLevel": "10.0.400"
       },
       "frameworks": {
         "net10.0-windows7.0": {
@@ -89,7 +89,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.301/PortableRuntimeIdentifierGraph.json",
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.401/PortableRuntimeIdentifierGraph.json",
           "packagesToPrune": {
             "Microsoft.CSharp": "(,4.7.32767]",
             "Microsoft.VisualBasic": "(,10.4.32767]",
@@ -367,20 +367,20 @@
         }
       }
     },
-    "D:\\GitHub Repositories\\Neural-Network-Overview\\NeuralNetwork.UI\\NeuralNetwork.UI.csproj": {
+    "D:\\mix\\Github Repositories\\Neural-Network-Overview\\NeuralNetwork.UI\\NeuralNetwork.UI.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\GitHub Repositories\\Neural-Network-Overview\\NeuralNetwork.UI\\NeuralNetwork.UI.csproj",
+        "projectUniqueName": "D:\\mix\\Github Repositories\\Neural-Network-Overview\\NeuralNetwork.UI\\NeuralNetwork.UI.csproj",
         "projectName": "NeuralNetwork.UI",
-        "projectPath": "D:\\GitHub Repositories\\Neural-Network-Overview\\NeuralNetwork.UI\\NeuralNetwork.UI.csproj",
-        "packagesPath": "C:\\Users\\U S E R\\.nuget\\packages\\",
-        "outputPath": "D:\\GitHub Repositories\\Neural-Network-Overview\\NeuralNetwork.UI\\obj\\",
+        "projectPath": "D:\\mix\\Github Repositories\\Neural-Network-Overview\\NeuralNetwork.UI\\NeuralNetwork.UI.csproj",
+        "packagesPath": "C:\\Users\\MA\\.nuget\\packages\\",
+        "outputPath": "D:\\mix\\Github Repositories\\Neural-Network-Overview\\NeuralNetwork.UI\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
         ],
         "configFilePaths": [
-          "C:\\Users\\U S E R\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Users\\MA\\AppData\\Roaming\\NuGet\\NuGet.Config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],
@@ -396,8 +396,8 @@
             "framework": "net10.0-windows7.0",
             "targetAlias": "net10.0-windows",
             "projectReferences": {
-              "D:\\GitHub Repositories\\Neural-Network-Overview\\NeuralNetwork.Core\\NeuralNetwork.Core.csproj": {
-                "projectPath": "D:\\GitHub Repositories\\Neural-Network-Overview\\NeuralNetwork.Core\\NeuralNetwork.Core.csproj"
+              "D:\\mix\\Github Repositories\\Neural-Network-Overview\\NeuralNetwork.Core\\NeuralNetwork.Core.csproj": {
+                "projectPath": "D:\\mix\\Github Repositories\\Neural-Network-Overview\\NeuralNetwork.Core\\NeuralNetwork.Core.csproj"
               }
             }
           }
@@ -412,7 +412,7 @@
           "auditLevel": "low",
           "auditMode": "all"
         },
-        "SdkAnalysisLevel": "10.0.300"
+        "SdkAnalysisLevel": "10.0.400"
       },
       "frameworks": {
         "net10.0-windows": {
@@ -437,7 +437,7 @@
               "privateAssets": "none"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.301/PortableRuntimeIdentifierGraph.json",
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.401/PortableRuntimeIdentifierGraph.json",
           "packagesToPrune": {
             "Microsoft.CSharp": "(,4.7.32767]",
             "Microsoft.VisualBasic": "(,10.4.32767]",

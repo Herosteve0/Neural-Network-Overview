@@ -1,4 +1,4 @@
-namespace NeuralNetwork.Core.Data;
+namespace NeuralNetwork.Core.System.Data;
 
 public class MnistDatabase {
     private static int ReadBigEndianInt(BinaryReader br) {

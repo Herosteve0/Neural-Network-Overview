@@ -1,7 +1,7 @@
 ﻿using ILGPU.Runtime;
-using NeuralNetwork.Core.Data;
+using NeuralNetwork.Core.System.Data;
 
-namespace NeuralNetwork.Core;
+namespace NeuralNetwork.Core.System;
 
 using ForwardData = (float[][] values, float[][] activations);
 using ForwardNoise = (float[] values, float[] activations);

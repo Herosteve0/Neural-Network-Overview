@@ -1,7 +1,7 @@
 using System.Drawing;
-using NeuralNetwork.Core.Data;
+using NeuralNetwork.Core.System.Data;
 
-namespace NeuralNetwork.Core;
+namespace NeuralNetwork.Core.System;
 
 public class TesterTracker(int breathTicks) : ScannerTracker(breathTicks) {
     public List<DataGuess<float>> Mistakes;
@@ -25,16 +25,11 @@ public class TesterTracker(int breathTicks) : ScannerTracker(breathTicks) {
 public class Tester(
     int batchSize,
     bool multiThread = false
-) : NetworkScanner(batchSize, 5000) {
-    public new TesterTracker Tracker => base.Tracker as TesterTracker;
-    protected override ScannerTracker CreateTracker(int breathTicks) {
-        return new TesterTracker(breathTicks);
-    }
-
-    public async Task<int> Test(Network network, bool showMistakes = false) {
+) : NetworkScanner<TesterTracker>(batchSize, 5000) {
+    public async Task<float> Test(Network network, bool showMistakes = false) {
         await IterateNetwork(network);
             
-        int testingAccuracy = Tracker.Accuracy;
+        float testingAccuracy = Tracker.AccuracyPercent;
 
         if (showMistakes) {
             Console.WriteLine("Creating images (takes a bit...)");

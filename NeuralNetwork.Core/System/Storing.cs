@@ -1,4 +1,4 @@
-namespace NeuralNetwork.Core {
+namespace NeuralNetwork.Core.System {
     public class NetworkFile(string filepath) {
         private string FilePath { get; } = Path.GetFullPath("../../../"  + filepath);
 
@@ -37,7 +37,7 @@ namespace NeuralNetwork.Core {
             using BinaryReader reader = new BinaryReader(File.OpenRead(FilePath));
 
             string header = reader.ReadString();
-            int accuracy = reader.ReadInt32();
+            float accuracy = reader.ReadSingle();
 
             int layerAmount = reader.ReadInt32();
             int[] layers = new int[layerAmount];

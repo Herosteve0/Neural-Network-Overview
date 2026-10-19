@@ -1,6 +1,6 @@
-using NeuralNetwork.Core.Data;
+using NeuralNetwork.Core.System.Data;
 
-namespace NeuralNetwork.Core;
+namespace NeuralNetwork.Core.System;
 
 public record NetworkInstance(Network Network, float Accuracy) {
     public NetworkInstance Copy() {

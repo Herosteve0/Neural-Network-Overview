@@ -1,6 +1,6 @@
-﻿using NeuralNetwork.Core.Data;
+﻿using NeuralNetwork.Core.System.Data;
 
-namespace NeuralNetwork.Core;
+namespace NeuralNetwork.Core.System;
 
 public enum ScannerState {
 	Idle,
@@ -12,7 +12,7 @@ public class ScannerTracker(int breathTicks) {
 	public int Iterations { get; private set; }
 	protected int DataSize { get; private set; }
 
-	private int CurrentProgress { get; set; }
+	public int CurrentProgress { get; private set; }
 	public int Progress { get; private set; }
 	public float ProgressPercentage => (float)Progress / TotalExamples;
 	private int _breathCooldown;
@@ -72,15 +72,19 @@ public class ScannerTracker(int breathTicks) {
 		return span;
 	}
 
-	public void Pause() {
+
+	public void TogglePause() {
+		if (IsRunning) Pause();
+		else Resume();
+	}
+
+	private void Pause() {
+		if (IsPaused) return;
 		_state = ScannerState.Paused;
 		_cancellationTokenSource = new CancellationTokenSource();
 	}
 
-	public void Resume() {
-		Resume(false);
-	}
-	private void Resume(bool step) {
+	private void Resume(bool step = false) {
 		_state = ScannerState.Running;
 		_isStepping = step;
 		_cancellationTokenSource.Cancel();
@@ -102,31 +106,22 @@ public class ScannerTracker(int breathTicks) {
 	
 	public TimeSpan Finish() {
 		_state =  ScannerState.Idle;
+		Resume();
 		return TimeSinceStart;
 	}
 }
 
-public abstract class NetworkScanner {
-	protected int BatchSize { get; }
+public abstract class NetworkScanner<TTracker>(int batchSize, int breathTicks = 2500) where TTracker : ScannerTracker {
 	private DataBatch<float> _dataBatch;
 	private int _recycles;
 
-	protected virtual ScannerTracker CreateTracker(int breathTicks) { 
-		return new ScannerTracker(breathTicks);
-	}
-
-	protected ScannerTracker Tracker { get; }
-	protected NetworkScanner(int batchSize, int breathTicks = 2500) {
-		BatchSize = batchSize;
-		// ReSharper disable once VirtualMemberCallInConstructor
-		Tracker = CreateTracker(breathTicks);
-	}
+	public TTracker Tracker { get; } = Activator.CreateInstance(typeof(TTracker), breathTicks) as TTracker;
 
 	/**
 	 * Initializes the data batch that will be used for the iteration.
 	 */
 	public void LoadBatch(DataBatch<float> dataBatch, int batchRecycles = 1) {
-		_dataBatch = dataBatch;
+		_dataBatch = dataBatch.Copy();
 		_recycles = batchRecycles;
 		
 		Tracker.Initialize(dataBatch.Size, batchRecycles);
@@ -142,29 +137,31 @@ public abstract class NetworkScanner {
 	 *
 	 * Call this function to process a network. Note: It expects a loaded Data Batch!
 	 */
-	protected async Task IterateNetwork(Network network, Random random = null) {
+	protected async Task<TimeSpan> IterateNetwork(Network network, Random random = null) {
 		if (_dataBatch == null) throw new NullReferenceException("Attempted to iterate a network with no loaded data batch!");
-		if (_dataBatch.Size == 0) return;
+		if (_dataBatch.Size == 0) return TimeSpan.Zero;
 		
 		Tracker.Begin();
 		for (int iteration = 0; iteration < _recycles; iteration++) {
 			if (random != null) _dataBatch.Shuffle(random);
 			OnNewSample();
 			Tracker.BeginIteration();
-			for (int batchPointer = 0; batchPointer < _dataBatch.Size; batchPointer += BatchSize) {
+			for (int batchPointer = 0; batchPointer < _dataBatch.Size; batchPointer += batchSize) {
 				if (!Tracker.IsRunning) {
-					return;
+					return Tracker.Finish();
 				}
 				
 				await ProcessRequest(
 					network,
 					_dataBatch.GetSmallBatch(
 						batchPointer,
-						Math.Min(BatchSize, _dataBatch.Size - batchPointer)
+						Math.Min(batchSize, _dataBatch.Size - batchPointer)
 					)
 				);
 			}
 		}
+		
+		return Tracker.Finish();
 	}
 
 	private async Task ProcessRequest(Network network, DataBatch<float> trainingData) {
@@ -193,7 +190,7 @@ public abstract class NetworkScanner {
 	) {
 		TLocal local = createLocal();
 
-		foreach (DataSample<float> testingData in dataBatch.Data) {
+		foreach (DataSample<float> testingData in dataBatch.DataSpan) {
 			processLocal(local, testingData);
 		}
 
@@ -225,7 +222,7 @@ public abstract class NetworkScanner {
 		Tracker.Finish();
 	}
 	public void TogglePause() {
-		Tracker.Pause();
+		Tracker.TogglePause();
 	}
 	public void Step() {
 		Tracker.Step();

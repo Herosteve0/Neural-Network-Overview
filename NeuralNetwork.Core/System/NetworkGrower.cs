@@ -1,6 +1,6 @@
-﻿using NeuralNetwork.Core.Data;
+﻿using NeuralNetwork.Core.System.Data;
 
-namespace NeuralNetwork.Core;
+namespace NeuralNetwork.Core.System;
 
 public class GrowerTracker {
     private readonly TrainerTracker[] _trainers;
@@ -15,20 +15,52 @@ public class GrowerTracker {
         _trainers = trainers;
         _testers = testers;
     }
-
-    public float AverageAccuracy => (float)_trainers.Select(tracker => tracker.AverageAccuracy).Average();
-    public float AverageLoss => _trainers.Select(tracker => tracker.AverageLoss).Average();
+    
+    public float Accuracy { get; private set; }
+    public float Loss { get; private set; }
 
     public int TotalExamples => _trainers[0].TotalExamples + _testers[0].TotalExamples;
-    public int Progress => (int)(_trainers.Select(tracker => tracker.Progress).Average() + _testers.Select(tracker => tracker.Progress).Average());
+    public int Progress => (int)(_trainers.Average(tracker => tracker.Progress) + _testers.Average(tracker => tracker.Progress));
 
+    public void Update() {
+        int currentProgress = _trainers.Sum(trainer => trainer.CurrentProgress);
+
+        if (currentProgress == 0f) {
+            Accuracy = 0;
+            Loss = 0;
+            return;
+        }
+        
+        int correct = _trainers.Sum(trainer => trainer.Accuracy);
+        Accuracy = 100f * correct / currentProgress;
+
+        float totalLoss = _trainers.Sum(trainer => trainer.Loss);
+        Loss = totalLoss / currentProgress;
+    }
+    
     public void Begin(int generations) {
         Generations = generations;
         CurrentGeneration = 0;
     }
 
-    public void BeginGeneration() { }
+    public GrowerProgressSnapshot Snapshot() {
+        Update();
+        return new GrowerProgressSnapshot(
+            CurrentGeneration, Generations,
+            Progress, TotalExamples,
+            Loss, Accuracy
+        );
+    }
 }
+
+public readonly record struct GrowerProgressSnapshot(
+    int Generation,
+    int TotalGenerations,
+    int Progress,
+    int TotalExamples,
+    float Loss,
+    float Accuracy
+);
 
 /**
  * Allows flexible control over the mutation strength.
@@ -42,7 +74,7 @@ public class MutationStrengthManager {
      */
     public MutationStrengthManager(float mutationStrength) {
         BaseMutationStrength = mutationStrength;
-        ResetLearningRate();
+        ResetMutationStrength();
 
         _hasDecay = false;
     }
@@ -83,7 +115,7 @@ public class MutationStrengthManager {
     public void SetLearningRate(float mutationStrength) {
         MutationStrength = mutationStrength;
     }
-    public void ResetLearningRate() {
+    public void ResetMutationStrength() {
         MutationStrength = BaseMutationStrength;
     }
 	
@@ -251,22 +283,7 @@ public class NetworkGrower {
     }
 }
 
-public class GrowableNetworkTracker {
-    public float Accuracy;
-    
-    public TrainerTracker TrainerTracker;
-    public TesterTracker TesterTracker;
-
-    public GrowableNetworkTracker(float accuracy = 0f) {
-        Accuracy = accuracy;
-    }
-    
-    
-}
-
 public class GrowableNetwork {
-    public GrowableNetworkTracker Tracker;
-    
     private NetworkInstance Instance { get; }
     private Network Network => Instance.Network;
     private IBackend Backend => Network.Backend;
@@ -275,15 +292,11 @@ public class GrowableNetwork {
     public GrowableNetwork(int[] layers, IBackend backend, Random random) : this(
             new Network(layers, backend, random), 0
         ) { }
-    public GrowableNetwork(Network network, int accuracy) : this(
+    public GrowableNetwork(Network network, float accuracy) : this(
         new NetworkInstance(network, accuracy)
     ) { }
     public GrowableNetwork(NetworkInstance instance) {
         Instance = instance;
-
-        Tracker = new GrowableNetworkTracker {
-            Accuracy = Accuracy
-        };
     }
 
     public static implicit operator NetworkInstance(GrowableNetwork network) {
@@ -301,9 +314,6 @@ public class GrowableNetwork {
     public async Task<GrowableNetwork> TrainAndEvaluate(
         Trainer trainer, Random random, float learningRate, Tester tester
     ) {
-        Tracker.TrainerTracker = trainer.Tracker;
-        Tracker.TesterTracker = tester.Tracker;
-        
         trainer.Tracker.Reset();
         tester.Tracker.Reset();
         
@@ -313,10 +323,7 @@ public class GrowableNetwork {
             learningRate
         );
         
-        int accuracy = await tester.Test(Network);
-
-        Tracker.TrainerTracker = null;
-        Tracker.TesterTracker = null;
+        float accuracy = await tester.Test(Network);
         
         return new GrowableNetwork(Network, accuracy);
     }

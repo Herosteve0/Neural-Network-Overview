@@ -3,9 +3,9 @@ using ILGPU;
 using ILGPU.Runtime;
 using ILGPU.Runtime.Cuda;
 using ILGPU.Runtime.OpenCL;
-using NeuralNetwork.Core.Data;
+using NeuralNetwork.Core.System.Data;
 
-namespace NeuralNetwork.Core;
+namespace NeuralNetwork.Core.System;
 
 public static class NetworkManager {
     private static readonly DataBatch<float> TrainingData = new DataBatch<float>(MnistDatabase.LoadAllTrainingData());
@@ -34,14 +34,14 @@ public static class NetworkManager {
         InitializeParameters(
             [784, 512, 512, 512, 512, 10],
             5000,
-            4,
-            4,
+            2,
+            1,
             0.085f,
-            5,
+            1,
             0.025f,
             0.75f
         );
-        NewNetwork();
+        LoadNetwork();
     }
     
     // Programmer Runners
@@ -50,10 +50,7 @@ public static class NetworkManager {
     public static GrowableNetwork Network;
     
     public static async Task GroupTraining(bool save = false) {
-        if (_accelerator == null) {
-            Console.WriteLine("Group Training requires an initialized accelerator.");
-            return;
-        }
+        if (_accelerator == null) throw new NullReferenceException("No accelerator loaded.");
         
         Grower = new NetworkGrower(_processors, TrainingData, _repeats, TestingData);
         Network = await Grower.GenTrain(
@@ -69,7 +66,7 @@ public static class NetworkManager {
             )
         );
         
-        Console.WriteLine($"Accuracy: {Network.Accuracy}");
+        Console.WriteLine($"Accuracy: {Network.Accuracy}%");
         
         SaveNetwork();
     }

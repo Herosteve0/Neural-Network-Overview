@@ -1,7 +1,7 @@
 using ILGPU;
 using ILGPU.Runtime;
 
-namespace NeuralNetwork.Core.Data;
+namespace NeuralNetwork.Core.System.Data;
 
 public interface ITensor : IDisposable {
     /// <summary>
