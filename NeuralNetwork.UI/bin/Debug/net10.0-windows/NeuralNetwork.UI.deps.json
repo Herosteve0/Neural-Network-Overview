@@ -1,0 +1,92 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v10.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v10.0": {
+      "NeuralNetwork.UI/1.0.0": {
+        "dependencies": {
+          "NeuralNetwork.Core": "1.0.0"
+        },
+        "runtime": {
+          "NeuralNetwork.UI.dll": {}
+        }
+      },
+      "ILGPU/1.5.3": {
+        "runtime": {
+          "lib/net7.0/ILGPU.dll": {
+            "assemblyVersion": "1.5.3.0",
+            "fileVersion": "1.5.3.0"
+          }
+        }
+      },
+      "ILGPU.Algorithms/1.5.3": {
+        "dependencies": {
+          "ILGPU": "1.5.3"
+        },
+        "runtime": {
+          "lib/net7.0/ILGPU.Algorithms.dll": {
+            "assemblyVersion": "1.5.3.0",
+            "fileVersion": "1.5.3.0"
+          }
+        }
+      },
+      "OpenCL.Net/2.2.9": {
+        "runtime": {
+          "lib/net40/OpenCL.Net.dll": {
+            "assemblyVersion": "2.2.9.0",
+            "fileVersion": "2.2.9.0"
+          }
+        }
+      },
+      "NeuralNetwork.Core/1.0.0": {
+        "dependencies": {
+          "ILGPU": "1.5.3",
+          "ILGPU.Algorithms": "1.5.3",
+          "OpenCL.Net": "2.2.9"
+        },
+        "runtime": {
+          "NeuralNetwork.Core.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "NeuralNetwork.UI/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "ILGPU/1.5.3": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-VhAfQqnp/qTcQla5zcBPQIoUJox8T1EuZLuKrynFFE1BQvOOUCksiCb9IQAJa2MSJf6QDi5YIoG45K0I+GWcgg==",
+      "path": "ilgpu/1.5.3",
+      "hashPath": "ilgpu.1.5.3.nupkg.sha512"
+    },
+    "ILGPU.Algorithms/1.5.3": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-KySqYhghiJKkf77NTLcxebFzD2hz/hpO1Dxz/B0IpnowhwKD3i+PVaGa3E+TXahGHY6711HVOWpKr07wV6qEOg==",
+      "path": "ilgpu.algorithms/1.5.3",
+      "hashPath": "ilgpu.algorithms.1.5.3.nupkg.sha512"
+    },
+    "OpenCL.Net/2.2.9": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-88xksmTwopVt7UN8Kdpry3sIKcEM5sbvIKJYYwj8MGOvnpqS50N9HaKBD/oXae/1pKyuj2/Ipo1eid7yQ18B1Q==",
+      "path": "opencl.net/2.2.9",
+      "hashPath": "opencl.net.2.2.9.nupkg.sha512"
+    },
+    "NeuralNetwork.Core/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}

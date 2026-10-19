@@ -264,11 +264,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "D:\\GitHub Repositories\\Neurtal-Network-Overview\\Neurtal-Network-Overview.csproj",
-      "projectName": "Neurtal-Network-Overview",
-      "projectPath": "D:\\GitHub Repositories\\Neurtal-Network-Overview\\Neurtal-Network-Overview.csproj",
+      "projectUniqueName": "D:\\GitHub Repositories\\Neural-Network-Overview\\Neural-Network-Overview.csproj",
+      "projectName": "Neural-Network-Overview",
+      "projectPath": "D:\\GitHub Repositories\\Neural-Network-Overview\\Neural-Network-Overview.csproj",
       "packagesPath": "C:\\Users\\U S E R\\.nuget\\packages\\",
-      "outputPath": "D:\\GitHub Repositories\\Neurtal-Network-Overview\\obj\\",
+      "outputPath": "D:\\GitHub Repositories\\Neural-Network-Overview\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

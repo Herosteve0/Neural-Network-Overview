@@ -1,0 +1,78 @@
+﻿<Window x:Class="NeuralNetwork.UI.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Neural Network Trainer"
+        Height="450" Width="650"
+        MinHeight="350" MinWidth="500">
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <TextBlock Text="Neural Network Trainer"
+                   FontSize="24"
+                   FontWeight="Bold"
+                   Margin="0,0,0,20"/>
+
+        <!-- Training progress -->
+        <StackPanel Grid.Row="1" Margin="0,0,0,15">
+            <TextBlock x:Name="StatusText"
+                       Text="Ready"
+                       Margin="0,0,0,5"/>
+
+            <ProgressBar x:Name="TotalProgress"
+                         Height="20"
+                         Minimum="0"
+                         Maximum="1"
+                         Value="0"/>
+            
+            <ProgressBar x:Name="TrainingProgress"
+                         Height="20"
+                         Minimum="0"
+                         Maximum="1"
+                         Value="0"/>
+
+            <TextBlock x:Name="TrainingProgressText"
+                       Text="1/1"
+                       Margin="0,0,0,5"/>
+        </StackPanel>
+
+        <!-- Metrics -->
+        <Border Grid.Row="2"
+                Padding="12"
+                Margin="0,0,0,15"
+                Background="#EEEEEE"
+                CornerRadius="6">
+            <StackPanel>
+                <TextBlock Text="Training Metrics"
+                           FontWeight="Bold"
+                           Margin="0,0,0,5"/>
+
+                <TextBlock x:Name="LossText"
+                           Text="Loss: --"/>
+
+                <TextBlock x:Name="AccuracyText"
+                           Text="Accuracy: --"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Log -->
+        <GroupBox Grid.Row="3" Header="Training Log">
+            <ListBox x:Name="LogList"/>
+        </GroupBox>
+
+        <!-- Controls -->
+        <Button Grid.Row="4"
+                x:Name="ControlButton"
+                Content="Start Training"
+                Height="35"
+                Margin="0,15,0,0"
+                Click="TrainingControlButton"/>
+    </Grid>
+</Window>

@@ -3,14 +3,28 @@ An open-source project I built to understand and share what I've learned about n
 
 The goal is to explore both how neural networks learn and how different implementations affect their performance.
 
-This current implementation is not well-structured for usage, but most of what you need to know is inside the `Program.cs` file. If you see this repository and know me in real life, ask me whatever you need and hopefully I'll remember to answer. If not... thanks for finding me?
+This is a testing commit, as I've yet to test and clean up the code. As you will probably see, the Trackers have gotten out of hand, I will work on that, but you can ignore them for now as they are purely for the UI. Speaking of, I added a UI in this version. Does it work, yes? Do I recommend you to play around with it, but really... this repo is still meant for code, but I will improve the UI soon.
 
 - The SIMD implementations are the best I could think of and I honestly won't be bothered to increase it anymore.
-- As for the GPU, I improved it quiet a bit. It runs really fast, which I am extremely proud of, as well as fairly accurate, though it did have issues so this current version isn't too reliable for usage (Not that you should use this as a library, but anyway). I used Reduction Kernels and more abstract Kernels to achieve things such as the Sum/Max and softmax. Not sure if they can be improved, but they are really cool as of now.
+- As for the GPU, I improved it quiet a bit. It runs really fast, which I am extremely proud of. I used Reduction Kernels and more abstract Kernels to achieve things such as the Sum/Max and softmax. Not sure if they can be improved, but they are really cool as of now.
 
 # Special Thanks
 - ## 3Blue1Brown's [Neural Networks Lessons](https://www.3blue1brown.com/?topic=neural-networks)
 - ## Primer's [Simulating a single brain cell](www.youtube.com/watch?v=GkiITbgu0V0)
+
+# Navigation
+
+The main code is inside _**NeuralNetwork.Core/System**_ and you can find most information about each class in it's respective comment (if I forgot to comment something, oops)
+
+Main things to know:
+- System/Backend: Every calculation that is ever executed is in there. As well as all the implementations (Scalar, CPU SIMD, GPU)
+- System/Networks: Contains the main structure of a network and a virtual network. Which essentially just hold layers together.
+- System/Layers: Contains the main structure of a layer (Input, Output and Hidden). Essentially what holds weights and bias together.
+- System/NetworkScanner: A class that iterates through a network.
+- System/Trainer: A network scanner used to train a network.
+- System/Tester: A network scanner used to test a network.
+- System/NetworkGrower: Work in progress, but it's essentially a parallel trainer with mutations.
+- System/NetworkManager: A static placeholder.
 
 # Math
 

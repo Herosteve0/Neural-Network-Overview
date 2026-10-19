@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="NeuralNetwork.UI/NeuralNetwork.UI.csproj" />
+  <Project Path="NeuralNetwork.Core/NeuralNetwork.Core.csproj" />
+</Solution>

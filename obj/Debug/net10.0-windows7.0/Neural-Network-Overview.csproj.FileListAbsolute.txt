@@ -1,0 +1,6 @@
+D:\GitHub Repositories\Neural-Network-Overview\obj\Debug\net10.0-windows7.0\Neural-Network-Overview.csproj.AssemblyReference.cache
+D:\GitHub Repositories\Neural-Network-Overview\obj\Debug\net10.0-windows7.0\Neural-Network-Overview.GeneratedMSBuildEditorConfig.editorconfig
+D:\GitHub Repositories\Neural-Network-Overview\obj\Debug\net10.0-windows7.0\Neural-Network-Overview.AssemblyInfoInputs.cache
+D:\GitHub Repositories\Neural-Network-Overview\obj\Debug\net10.0-windows7.0\Neural-Network-Overview.AssemblyInfo.cs
+D:\GitHub Repositories\Neural-Network-Overview\obj\Debug\net10.0-windows7.0\Neural-Network-Overview.csproj.CoreCompileInputs.cache
+D:\GitHub Repositories\Neural-Network-Overview\obj\Debug\net10.0-windows7.0\Neural-Network-Overview.sourcelink.json
