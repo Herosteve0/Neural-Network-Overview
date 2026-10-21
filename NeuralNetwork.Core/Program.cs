@@ -47,7 +47,7 @@ Accelerator accelerator = context.Devices[0].CreateAccelerator(context);
 const bool multiThread = false;
 
 Trainer trainer = new Trainer(2500, 5000, new LearningRateManager(0.085f, 0.9f, 5), multiThread);
-trainer.LoadBatch(trainingData, 15);
+trainer.LoadBatch(trainingData, 25);
 
 Tester tester = new Tester(2500, multiThread);
 tester.LoadBatch(testingData);
@@ -67,9 +67,8 @@ if (oldAcc is < 0 or > 1) {
     Console.WriteLine($"Old Accuracy: {oldAcc * 100f}%");
 }
 
-float sharpness = 1f;
 for (int i = 0; i < 5; i++) {
-    float learningRate = LearningRateManager.SetFromAccuracy(oldAcc, sharpness);
+    float learningRate = LearningRateManager.SetFromAccuracy(oldAcc);
     Console.WriteLine($"Training Loop {i + 1} with LearningRate: {learningRate}");
     TimeSpan time = await trainer.Train(network, random, learningRate);
     Console.WriteLine($"Time: {time}, Learning Rate: {trainer.Tracker.LearningRate}, Accuracy: {trainer.Tracker.Accuracy}, Loss: {trainer.Tracker.Loss}");
@@ -80,8 +79,6 @@ for (int i = 0; i < 5; i++) {
     if (oldAcc < accuracy) {
         storer.Save(new NetworkInstance(network, accuracy));
         oldAcc = accuracy;
-    } else {
-        sharpness *= 2f;
     }
 }
 
