@@ -1,22 +1,9 @@
+using System.Globalization;
+using NeuralNetwork.Core.System.Backend;
 using NeuralNetwork.Core.System.Data;
+using NeuralNetwork.Core.System.Trackers;
 
 namespace NeuralNetwork.Core.System;
-
-public class TrainerTracker(int breathTicks) : ScannerTracker(breathTicks) {
-    public float LearningRate { get; internal set; }
-    public float Loss { get; internal set; }
-    public int Accuracy { get; internal set; }
-    
-    public float AverageLoss => CurrentProgress == 0f ? 0f : Loss / CurrentProgress;
-    public float AverageAccuracy => CurrentProgress == 0 ? 0 : 100f * Accuracy / CurrentProgress;
-
-    public override void BeginIteration() {
-        base.BeginIteration();
-        
-        Accuracy = 0;
-        Loss = 0f;
-    }
-}
 
 /**
  * Allows flexible control over the Learning Rate.
@@ -63,12 +50,23 @@ public class LearningRateManager {
     private float _minLoss = float.PositiveInfinity;
 
     public static implicit operator float(LearningRateManager info) {
-        if (info == null) return 0f;
-        return info.LearningRate;
+        return info?.LearningRate ?? 0f;
+    }
+    
+    /*
+     * For more info, paste this in https://www.desmos.com/calculator
+     * f\left(x\right)=\frac{\ln\left(c\left(1-x\right)+1\right)}{10\ln\left(c+1\right)}\left\{0\le x\le1\right\}
+     */
+    public static float SetFromAccuracy(float accuracy, float sharpness = 0f) {
+        if (sharpness == 0f) {
+            return (1 - accuracy) / 10f;
+        }
+        return (float)(Math.Log(1 + sharpness * (1 - accuracy)) / Math.Log(1 + sharpness)) / 10f;
     }
 
     public bool HasDecayed => LearningRate == 0f;
 
+    
     public void SetLearningRate(float learningRate) {
         LearningRate = learningRate;
     }
@@ -118,18 +116,33 @@ public class Trainer(
     LearningRateManager learningInfo,
     bool multiThread = false
 ) : NetworkScanner<TrainerTracker>(batchSize, breathTicks) {
-    public async Task Train(Network network, Random random) {
+    private float _lossGain;
+    private int _correctGain;
+    
+    public async Task<TimeSpan> Train(Network network, Random random) {
         learningInfo.ResetLearningRate();
-        await IterateNetwork(network, random);
+        return await IterateNetwork(network, random);
     }
 
-    public async Task Train(Network network, Random random, float learningRate) {
+    public async Task<TimeSpan> Train(Network network, Random random, float learningRate) {
         learningInfo.SetLearningRate(learningRate);
-        await IterateNetwork(network, random);
+        return await IterateNetwork(network, random);
     }
 
     protected override void OnBreath() {
-        Tracker.LearningRate = learningInfo;
+        base.OnFinish();
+        
+        Tracker.Update(learningInfo, _lossGain, _correctGain);
+        _lossGain = 0f;
+        _correctGain = 0;
+    }
+
+    protected override void OnFinish() {
+        base.OnFinish();
+        
+        Tracker.Update(learningInfo, _lossGain, _correctGain);
+        _lossGain = 0f;
+        _correctGain = 0;
     }
 
     protected override void Process(Network network, DataBatch<float> trainingData) {
@@ -137,49 +150,53 @@ public class Trainer(
 
         IBackend backend = network.Backend;
         
-        ISingleValue loss = backend.CreateValue(0);
-        ISingleValue accuracy = backend.CreateValue(0);
+        IValueFloat loss = backend.CreateValue(0f);
+        IValueInt correct = backend.CreateValue(0);
 
         if (multiThread) {
-            ExecuteMultiThread(network, trainingData, scale, loss, accuracy);
+            ExecuteMultiThread(network, trainingData, scale, loss, correct);
         } else {
-            Execute(network, trainingData, scale, loss, accuracy);
+            Execute(network, trainingData, scale, loss, correct);
         }
 
         float lossValue = backend.ReadSingle(loss);
         loss.Dispose();
         
-        int accuracyValue = (int)backend.ReadSingle(accuracy);
-        accuracy.Dispose();
+        int correctValue = backend.ReadSingle(correct);
+        correct.Dispose();
 
         learningInfo.CheckLoss(lossValue);
         if (learningInfo.HasDecayed) {
             ForceStop();
         }
 
-        Tracker.Accuracy += accuracyValue;
-        Tracker.Loss += lossValue;
+        _correctGain += correctValue;
+        _lossGain += lossValue;
     }
 
-    private void Execute(Network network, DataBatch<float> dataBatch, float scale, ISingleValue loss, ISingleValue accuracy) {
+    private void Execute(Network network, DataBatch<float> dataBatch, float scale, IValueFloat loss, IValueInt correct) {
         ExecuteSingle(
             dataBatch,
             () => new VirtualNetwork(network),
             (local, data) => TrainVirtualNetwork(network, local, data),
             (local) => {
-                local.IterateAdjust(network, scale, loss, accuracy);
+                local.IterateAdjust(network, scale);
+                local.AdjustCorrect(correct);
+                local.AdjustLoss(loss);
                 local.Dispose();
             }
         );
     }
     
-    private void ExecuteMultiThread(Network network, DataBatch<float> dataBatch, float scale, ISingleValue loss, ISingleValue accuracy) {
+    private void ExecuteMultiThread(Network network, DataBatch<float> dataBatch, float scale, IValueFloat loss, IValueInt correct) {
         ExecuteParallel(dataBatch,
             () => new VirtualNetwork(network),
             (local, data) => TrainVirtualNetwork(network, local, data),
             (local, lockObj) => {
                 lock (lockObj) {
-                    local.IterateAdjust(network, scale, loss, accuracy);
+                    local.IterateAdjust(network, scale);
+                    local.AdjustCorrect(correct);
+                    local.AdjustLoss(loss);
                 }
                 local.Dispose();
             }
@@ -188,8 +205,6 @@ public class Trainer(
 
     private static void TrainVirtualNetwork(Network network, VirtualNetwork virtualNetwork, DataSample<float> trainingData) {
         network.Calculate(trainingData, virtualNetwork);
-        // all layers of the network have the values we want (input, value, activation)
-        
         virtualNetwork.IterateBackward(network);
     }
 }

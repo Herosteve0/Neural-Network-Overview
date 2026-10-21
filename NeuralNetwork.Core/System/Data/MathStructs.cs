@@ -306,23 +306,26 @@ public class GpuTensor : BaseTensor {
 
 // Single Value
 
-public interface ISingleValue : IDisposable { }
+public interface IValueFloat : IDisposable { }
 
-public class CpuValue : ISingleValue {
+public class CpuValue : IValueFloat {
 
-    /// <summary>
-    /// Direct access to the CPU memory of the value.
-    ///
-    /// Meant to be used by the Backend code.
-    /// </summary>
+    /**
+     * <summary>
+     * Direct access to the CPU memory of the value.
+     * Meant to be used by the Backend code.
+     * </summary>
+     */
     public float Value { get; set; }
 
     public CpuValue() : this(0) {
     }
 
-    /// <summary>
-    /// Create a value from existing data.
-    /// </summary>
+    /**
+     * <summary>
+     * Create a value from existing data.
+     * </summary>
+     */
     public CpuValue(float value) {
         Value = value;
     }
@@ -333,21 +336,24 @@ public class CpuValue : ISingleValue {
 
     public void Dispose() {}
 }
-    
-public class GpuValue : ISingleValue {
+
+public class GpuValue : IValueFloat {
 
     private bool _disposed;
     
-    /// <summary>
-    /// The owning GPU buffer.
-    ///
-    /// Meant to be used for Backend code.
-    /// </summary>
+    /**
+     * <summary>
+     * The owning GPU buffer.
+     * Meant to be used for Backend code.
+     * </summary>
+     */
     public MemoryBuffer1D<float, Stride1D.Dense> Buffer { get; }
 
-    /// <summary>
-    /// A non-owning vew of the GPU memory.
-    /// </summary>
+    /**
+     * <summary>
+     * A non-owning vew of the GPU memory.
+     * </summary>
+     */
     public ArrayView1D<float, Stride1D.Dense> View => Buffer.View;
 
     public GpuValue(Accelerator accelerator) {
@@ -355,16 +361,99 @@ public class GpuValue : ISingleValue {
 
         Buffer = accelerator.Allocate1D<float>(1);
     }
-    /// <summary>
-    /// Create a GPU tensor and initializes it with CPU data.
-    /// </summary>
+    /**
+     * <summary>
+     * Create a GPU tensor and initializes it with CPU data.
+     * </summary>
+     */
     public GpuValue(Accelerator accelerator, float data) : this(accelerator) {
         Buffer.CopyFromCPU([data]);
     }
 
-    /// <summary>
-    /// Released GPU memory owned by this tensor.
-    /// </summary>
+    /**
+     * <summary>
+     * Released GPU memory owned by this tensor.
+     * </summary>
+     */
+    public void Dispose() {
+        if (_disposed) return;
+
+        Buffer.Dispose();
+        _disposed = true;
+    }
+}
+
+// Integer Value
+
+public interface IValueInt : IDisposable { }
+
+public class CpuInt : IValueInt {
+
+    /**
+     * <summary>
+     * Direct access to the CPU memory of the value.
+     *
+     * Meant to be used by the Backend code.
+     * </summary>
+     */
+    public int Value { get; set; }
+
+    public CpuInt() : this(0) { }
+
+    /**
+     * <summary>
+     * Create a value from existing data.
+     * </summary>
+     */
+    public CpuInt(int value) {
+        Value = value;
+    }
+
+    public static implicit operator int(CpuInt value) {
+        return value?.Value ?? 0;
+    }
+
+    public void Dispose() {}
+}
+
+public class GpuInt : IValueInt {
+
+    private bool _disposed;
+    
+    /**
+     * <summary>
+     * The owning GPU buffer.
+     * Meant to be used for Backend code.
+     * </summary>
+     */
+    public MemoryBuffer1D<int, Stride1D.Dense> Buffer { get; }
+
+    /**
+     * <summary>
+     * A non-owning vew of the GPU memory.
+     * </summary>
+     */
+    public ArrayView1D<int, Stride1D.Dense> View => Buffer.View;
+
+    public GpuInt(Accelerator accelerator) {
+        ArgumentNullException.ThrowIfNull(accelerator);
+
+        Buffer = accelerator.Allocate1D<int>(1);
+    }
+    /**
+     * <summary>
+     * Create a GPU tensor and initializes it with CPU data.
+     * </summary>
+     */
+    public GpuInt(Accelerator accelerator, int data) : this(accelerator) {
+        Buffer.CopyFromCPU([data]);
+    }
+
+    /**
+     * <summary>
+     * Released GPU memory owned by this tensor.
+     * </summary>
+     */
     public void Dispose() {
         if (_disposed) return;
 

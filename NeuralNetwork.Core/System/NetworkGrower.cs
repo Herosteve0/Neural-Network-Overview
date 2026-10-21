@@ -1,66 +1,8 @@
-﻿using NeuralNetwork.Core.System.Data;
+﻿using NeuralNetwork.Core.System.Backend;
+using NeuralNetwork.Core.System.Data;
+using NeuralNetwork.Core.System.Trackers;
 
 namespace NeuralNetwork.Core.System;
-
-public class GrowerTracker {
-    private readonly TrainerTracker[] _trainers;
-    private readonly TesterTracker[] _testers;
-    private readonly int _processors;
-
-    public int Generations { get; private set; }
-    public int CurrentGeneration { get; internal set; }
-    
-    public GrowerTracker(int processors, TrainerTracker[] trainers, TesterTracker[] testers) {
-        _processors = processors;
-        _trainers = trainers;
-        _testers = testers;
-    }
-    
-    public float Accuracy { get; private set; }
-    public float Loss { get; private set; }
-
-    public int TotalExamples => _trainers[0].TotalExamples + _testers[0].TotalExamples;
-    public int Progress => (int)(_trainers.Average(tracker => tracker.Progress) + _testers.Average(tracker => tracker.Progress));
-
-    public void Update() {
-        int currentProgress = _trainers.Sum(trainer => trainer.CurrentProgress);
-
-        if (currentProgress == 0f) {
-            Accuracy = 0;
-            Loss = 0;
-            return;
-        }
-        
-        int correct = _trainers.Sum(trainer => trainer.Accuracy);
-        Accuracy = 100f * correct / currentProgress;
-
-        float totalLoss = _trainers.Sum(trainer => trainer.Loss);
-        Loss = totalLoss / currentProgress;
-    }
-    
-    public void Begin(int generations) {
-        Generations = generations;
-        CurrentGeneration = 0;
-    }
-
-    public GrowerProgressSnapshot Snapshot() {
-        Update();
-        return new GrowerProgressSnapshot(
-            CurrentGeneration, Generations,
-            Progress, TotalExamples,
-            Loss, Accuracy
-        );
-    }
-}
-
-public readonly record struct GrowerProgressSnapshot(
-    int Generation,
-    int TotalGenerations,
-    int Progress,
-    int TotalExamples,
-    float Loss,
-    float Accuracy
-);
 
 /**
  * Allows flexible control over the mutation strength.
@@ -182,7 +124,6 @@ public class NetworkGrower {
         }
 
         Tracker = new GrowerTracker(
-            _processors,
             _trainers.Select(trainer => trainer.Tracker).ToArray(),
             _testers.Select(tester => tester.Tracker).ToArray()
         );
@@ -212,10 +153,9 @@ public class NetworkGrower {
         Tracker.Begin(generations);
         
         for (int gen = 0; gen < generations; gen++) {
+            Tracker.BeginGeneration();
             network = await Grow(network, info);
             info.DecayMutationStrength();
-
-            Tracker.CurrentGeneration++;
         }
         
         return network;

@@ -1,10 +1,22 @@
+using NeuralNetwork.Core.System.Backend;
 using NeuralNetwork.Core.System.Data;
 
 namespace NeuralNetwork.Core.System;
 
+using NetworkValues = (float[][] weights, float[][] bias);
+
+/**
+ * <param name="Accuracy">
+ * The accuracy of the network. In range [0, 1].
+ * </param>
+ */
 public record NetworkInstance(Network Network, float Accuracy) {
     public NetworkInstance Copy() {
         return this with { Network = Network.Copy() };
+    }
+    
+    public static implicit operator Network(NetworkInstance instance) {
+        return instance.Network;
     }
     
     public void Dispose() {
@@ -13,9 +25,7 @@ public record NetworkInstance(Network Network, float Accuracy) {
 }
     
 public class Network : IDisposable{
-        
     private BaseLayer[] Layers { get; }
-        
     public IBackend Backend { get; }
         
     public Network(int[] layers, IBackend backend, Random random) {
@@ -73,14 +83,8 @@ public class Network : IDisposable{
         network.CompleteForwardPass(this);
         return network.Result;
     }
-
-    public void UpdateTranspose() {
-        for (int i = 1; i < LayerAmount; i++) {
-            ((Layer)this[i]).UpdateTranspose();
-        }
-    }
         
-    public (float[][] weights, float[][] bias) GetData() {
+    public NetworkValues GetData() {
         float[][] weights = new float[LayerAmount - 1][];
         float[][] bias = new float[LayerAmount - 1][];
             
@@ -95,7 +99,7 @@ public class Network : IDisposable{
         return (weights, bias);
     }
     public Network Copy() {
-        var variables = GetData();
+        NetworkValues variables = GetData();
         return new Network(LayerLength, Backend, variables.weights, variables.bias);
     }
 
@@ -113,19 +117,20 @@ public class VirtualNetwork : IDisposable {
     /**
      * Loss of the given evaluation.
      */
-    public readonly ISingleValue Loss;
+    public readonly IValueFloat Loss;
+    
     /**
-     * Accuracy tracker of the virtual network.
+     * Correct Prediction tracker of the virtual network.
      */
-    public readonly ISingleValue Accuracy;
+    public readonly IValueInt Correct;
     /**
      * Answer the input should give.
      */
-    public readonly ISingleValue Target;
+    public readonly IValueInt Target;
     /**
      * Prediction made with given input.
      */
-    public readonly ISingleValue Prediction;
+    public readonly IValueInt Prediction;
         
     private readonly ITensor _input;
     private readonly ITensor _expectedOutput;
@@ -136,84 +141,84 @@ public class VirtualNetwork : IDisposable {
     private readonly ITensor[] _weightDelta;
     private readonly ITensor[] _biasDelta;
 
-    public readonly IBackend Backend;
-    public readonly int Length;
+    private readonly IBackend _backend;
+    private readonly int _length;
         
     public VirtualNetwork(Network network) : this(network.LayerLength.ToArray(), network.Backend) { }
     public VirtualNetwork(int[] layers, IBackend backend) {
-        Length = layers.Length;
-        Backend = backend;
+        _length = layers.Length;
+        _backend = backend;
 
-        Accuracy = Backend.CreateValue(0);
-        Loss = Backend.CreateValue(0);
-        Target = Backend.CreateValue(0);
-        Prediction = Backend.CreateValue(0);
+        Correct = _backend.CreateValue(0);
+        Loss = _backend.CreateValue(0f);
+        Target = _backend.CreateValue(0);
+        Prediction = _backend.CreateValue(0);
             
-        _values = new ITensor[Length - 1];
-        _activations = new ITensor[Length];
+        _values = new ITensor[_length - 1];
+        _activations = new ITensor[_length];
+        
+        _delta = new ITensor[_length - 1];
+        _weightDelta = new ITensor[_length - 1];
+        _biasDelta = new ITensor[_length - 1];
             
-        _delta = new ITensor[Length - 1];
-        _weightDelta = new ITensor[Length - 1];
-        _biasDelta = new ITensor[Length - 1];
+        _input = _backend.Zero(layers[0]);
+        _expectedOutput = _backend.Zero(layers[_length - 1]);
             
-        _input = Backend.Zero(layers[0]);
-        _expectedOutput = Backend.Zero(layers[Length - 1]);
-            
-        for (int i = 0; i < Length; i++) {
-            _activations[i] = Backend.Zero(layers[i]);
+        for (int i = 0; i < _length; i++) {
+            _activations[i] = _backend.Zero(layers[i]);
 
-            if (i == Length - 1) continue;
+            if (i == _length - 1) continue;
                 
-            _values[i] = Backend.Zero(layers[i + 1]);
+            _values[i] = _backend.Zero(layers[i + 1]);
 
-            _delta[i] = Backend.Zero(layers[i + 1]);
-            _weightDelta[i] = Backend.Zero(layers[i + 1], layers[i]);
-            _biasDelta[i] = Backend.Zero(layers[i + 1]);
+            _delta[i] = _backend.Zero(layers[i + 1]);
+            _weightDelta[i] = _backend.Zero(layers[i + 1], layers[i]);
+            _biasDelta[i] = _backend.Zero(layers[i + 1]);
         }
     }
         
 
     public void Load(DataSample<float> input) {
         _rawInput = input;
-        Backend.Set(_input, input.Values);
-        Backend.SetSingle(Target, input.Label);
+        _backend.Set(_input, input.Values);
+        _backend.SetSingle(Target, input.Label);
 
-        float[] expected = new float[Length == 0 ? 0 : _expectedOutput.Length];
+        float[] expected = new float[_length == 0 ? 0 : _expectedOutput.Length];
         expected[input.Label] = 1f;
-        Backend.Set(_expectedOutput, expected);
+        _backend.Set(_expectedOutput, expected);
     }
 
     public DataGuess<float> RawGuess => new DataGuess<float>(
         _rawInput,
-        (int)Backend.ReadSingle(Prediction)
+        _backend.ReadSingle(Prediction)
     );
-    public ITensor Result => _activations[Length - 1];
-    public bool IsCorrect => (int)Backend.ReadSingle(Prediction) == _rawInput.Label;
+    public ITensor Result => _activations[_length - 1];
+    public bool IsCorrect => _backend.ReadSingle(Prediction) == _rawInput.Label;
 
     public (float[][] values, float[][] activations) GetForwardData() {
-        float[][] values = new float[Length - 1][];
+        float[][] values = new float[_length - 1][];
         for (int i = 0; i < _values.Length; i++) {
-            values[i] = Backend.Read(_values[i]);
+            values[i] = _backend.Read(_values[i]);
         }
-        float[][] activations = new float[Length][];
+        float[][] activations = new float[_length][];
         for (int i = 0; i < _activations.Length; i++) {
-            activations[i] = Backend.Read(_activations[i]);
+            activations[i] = _backend.Read(_activations[i]);
         }
         
         return (values, activations);
     }
     public (float[][] delta, float[][] deltaWeight, float[][] deltaBias) GetBackwardData() {
-        float[][] delta = new float[Length - 1][];
+        float[][] delta = new float[_length - 1][];
         for (int i = 0; i < _delta.Length; i++) {
-            delta[i] = Backend.Read(_delta[i]);
+            delta[i] = _backend.Read(_delta[i]);
         }
-        float[][] deltaWeight = new float[Length - 1][];
+        float[][] deltaWeight = new float[_length - 1][];
         for (int i = 0; i < _weightDelta.Length; i++) {
-            deltaWeight[i] = Backend.Read(_weightDelta[i]);
+            deltaWeight[i] = _backend.Read(_weightDelta[i]);
         }
-        float[][] deltaBias = new float[Length - 1][];
+        float[][] deltaBias = new float[_length - 1][];
         for (int i = 0; i < _biasDelta.Length; i++) {
-            deltaBias[i] = Backend.Read(_biasDelta[i]);
+            deltaBias[i] = _backend.Read(_biasDelta[i]);
         }
         
         return (delta, deltaWeight, deltaBias);
@@ -236,20 +241,26 @@ public class VirtualNetwork : IDisposable {
         }
     }
 
-    public void IterateAdjust(Network network, float scale, ISingleValue lossOut, ISingleValue accuracyOut) {
-        if (lossOut != null) Backend.AddSingle(lossOut, Loss);
-        if (accuracyOut != null) Backend.AddSingle(accuracyOut, Accuracy);
+    public void IterateAdjust(Network network, float scale) {
         for (int i = 1; i < network.LayerAmount; i++) {
             Adjust(i, network[i], scale);
         }
     }
 
+    public void AdjustCorrect(IValueInt correctOut) {
+        _backend.AddSingle(correctOut, Correct);
+    }
+    
+    public void AdjustLoss(IValueFloat lossOut) {
+        _backend.AddSingle(lossOut, Loss);
+    }
+
     public void EvaluateAnswer() {
-        Backend.CheckAnswer(Prediction, Target, Accuracy);
+        _backend.CheckAnswer(Prediction, Target, Correct);
     }
     
     public void EvaluateLoss() {
-        Backend.Loss(Result, _rawInput.Label, Loss);
+        _backend.Loss(Result, _rawInput.Label, Loss);
     }
 
     public void Forward(int index, BaseLayer layer) {
@@ -267,7 +278,7 @@ public class VirtualNetwork : IDisposable {
         // Layer 0 has no parameters, so index is shifted by -1
         int l = index - 1;
             
-        if (index == Length - 1) {
+        if (index == _length - 1) {
             layer.Backward(_activations[index], _expectedOutput, _delta[l]);
         } else {
             layer.Backward(_values[l], _delta[l + 1] , _delta[l]);
@@ -284,9 +295,9 @@ public class VirtualNetwork : IDisposable {
     }
 
     public void Dispose() {
-        Backend.Synchronize();
+        _backend.Synchronize();
         
-        Accuracy.Dispose();
+        Correct.Dispose();
         Loss.Dispose();
         Prediction.Dispose();
         Target.Dispose();

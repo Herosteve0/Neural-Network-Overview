@@ -1,122 +1,18 @@
 ﻿using NeuralNetwork.Core.System.Data;
+using NeuralNetwork.Core.System.Trackers;
 
 namespace NeuralNetwork.Core.System;
-
-public enum ScannerState {
-	Idle,
-	Running,
-	Paused
-}
-public class ScannerTracker(int breathTicks) {
-	public int TotalExamples { get; private set; }
-	public int Iterations { get; private set; }
-	protected int DataSize { get; private set; }
-
-	public int CurrentProgress { get; private set; }
-	public int Progress { get; private set; }
-	public float ProgressPercentage => (float)Progress / TotalExamples;
-	private int _breathCooldown;
-
-	private ScannerState _state = ScannerState.Idle;
-	public bool IsRunning => _state != ScannerState.Idle;
-	public bool IsPaused => _state is ScannerState.Paused;
-	private bool _isStepping;
-	private CancellationTokenSource _cancellationTokenSource;
-	
-	private DateTime _startTime;
-	private DateTime _progressTime;
-	public TimeSpan TimeSinceStart => DateTime.Now - _startTime;
-	public TimeSpan TimeSinceLastProgress => DateTime.Now - _progressTime;
-
-	public virtual void Initialize(int dataSize, int iterations) {
-		Iterations = iterations;
-		DataSize = dataSize;
-		TotalExamples = dataSize * iterations;
-	}
-
-	public virtual void Reset() {
-		Progress = 0;
-	}
-	
-	public void Begin() {
-		Reset();
-		_startTime = DateTime.Now;
-		_progressTime = DateTime.Now;
-		
-		_state = ScannerState.Running;
-		
-	}
-
-	public virtual void BeginIteration() {
-		CurrentProgress = 0;
-	}
-	
-	public bool ApplyProgress(int progress) {
-		CurrentProgress += progress;
-		Progress += progress;
-		_breathCooldown += progress;
-		if (_breathCooldown >= breathTicks) {
-			_breathCooldown = 0;
-			return true;
-		}
-		return false;
-	}
-
-	protected virtual void BreathFunction() {
-		_progressTime = DateTime.Now;
-	}
-	
-	public TimeSpan UpdateProgress() {
-		TimeSpan span = TimeSinceLastProgress;
-		BreathFunction();
-		return span;
-	}
-
-
-	public void TogglePause() {
-		if (IsRunning) Pause();
-		else Resume();
-	}
-
-	private void Pause() {
-		if (IsPaused) return;
-		_state = ScannerState.Paused;
-		_cancellationTokenSource = new CancellationTokenSource();
-	}
-
-	private void Resume(bool step = false) {
-		_state = ScannerState.Running;
-		_isStepping = step;
-		_cancellationTokenSource.Cancel();
-	}
-
-	public async Task AwaitPause() {
-		try {
-			await Task.Delay(-1, _cancellationTokenSource.Token);
-		} catch (Exception) {
-			if (_isStepping) return;
-			Pause();
-		}
-	}
-
-	public void Step() {
-		if (!IsPaused) return;
-		Resume(true);
-	}
-	
-	public TimeSpan Finish() {
-		_state =  ScannerState.Idle;
-		Resume();
-		return TimeSinceStart;
-	}
-}
 
 public abstract class NetworkScanner<TTracker>(int batchSize, int breathTicks = 2500) where TTracker : ScannerTracker {
 	private DataBatch<float> _dataBatch;
 	private int _recycles;
 
+	private bool _isRunning;
+	
 	public TTracker Tracker { get; } = Activator.CreateInstance(typeof(TTracker), breathTicks) as TTracker;
 
+	protected int DataSize => _dataBatch.Size;
+	
 	/**
 	 * Initializes the data batch that will be used for the iteration.
 	 */
@@ -140,16 +36,17 @@ public abstract class NetworkScanner<TTracker>(int batchSize, int breathTicks = 
 	protected async Task<TimeSpan> IterateNetwork(Network network, Random random = null) {
 		if (_dataBatch == null) throw new NullReferenceException("Attempted to iterate a network with no loaded data batch!");
 		if (_dataBatch.Size == 0) return TimeSpan.Zero;
-		
+
+		_isRunning = true;
 		Tracker.Begin();
 		for (int iteration = 0; iteration < _recycles; iteration++) {
+			if (!_isRunning) break;
+			
 			if (random != null) _dataBatch.Shuffle(random);
 			OnNewSample();
 			Tracker.BeginIteration();
 			for (int batchPointer = 0; batchPointer < _dataBatch.Size; batchPointer += batchSize) {
-				if (!Tracker.IsRunning) {
-					return Tracker.Finish();
-				}
+				if (!_isRunning) break;
 				
 				await ProcessRequest(
 					network,
@@ -160,7 +57,9 @@ public abstract class NetworkScanner<TTracker>(int batchSize, int breathTicks = 
 				);
 			}
 		}
-		
+		_isRunning = false;
+
+		OnFinish();
 		return Tracker.Finish();
 	}
 
@@ -230,4 +129,5 @@ public abstract class NetworkScanner<TTracker>(int batchSize, int breathTicks = 
 
 	protected virtual void OnBreath() { }
 	protected virtual void OnNewSample() { }
+	protected virtual void OnFinish() { }
 }

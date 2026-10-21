@@ -1,4 +1,5 @@
 ﻿using ILGPU.Runtime;
+using NeuralNetwork.Core.System.Backend;
 using NeuralNetwork.Core.System.Data;
 
 namespace NeuralNetwork.Core.System;
@@ -290,7 +291,7 @@ internal class TestNetwork {
     }
 
     public void IterateAdjust() {
-        _virtualNetwork.IterateAdjust(_network, LearningRate, null, null);
+        _virtualNetwork.IterateAdjust(_network, LearningRate);
     }
 
     public ForwardData ReadForwardLayers() {

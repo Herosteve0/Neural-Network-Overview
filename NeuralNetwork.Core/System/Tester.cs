@@ -1,23 +1,9 @@
 using System.Drawing;
+using NeuralNetwork.Core.System.Backend;
 using NeuralNetwork.Core.System.Data;
+using NeuralNetwork.Core.System.Trackers;
 
 namespace NeuralNetwork.Core.System;
-
-public class TesterTracker(int breathTicks) : ScannerTracker(breathTicks) {
-    public List<DataGuess<float>> Mistakes;
-
-    public int Accuracy => TotalExamples - Mistakes.Count;
-    public float AccuracyPercent => Accuracy / (float)TotalExamples * 100;
-
-    public override void Reset() {
-        base.Reset();
-        Mistakes = [];
-    }
-
-    public DataGuess<float>[] GetMistakes() {
-        return Mistakes.ToArray();
-    }
-}
 
 /**
  * A Network Scanner used to test networks.
@@ -26,44 +12,68 @@ public class Tester(
     int batchSize,
     bool multiThread = false
 ) : NetworkScanner<TesterTracker>(batchSize, 5000) {
+    private int _iterationCorrect;
+    
+    /**
+     * <returns>
+     * the accuracy of the iteration as a float in the range [0, 1].
+     * </returns>
+     */
     public async Task<float> Test(Network network, bool showMistakes = false) {
         await IterateNetwork(network);
-            
-        float testingAccuracy = Tracker.AccuracyPercent;
 
         if (showMistakes) {
             Console.WriteLine("Creating images (takes a bit...)");
             DrawImages(Tracker.GetMistakes());
         }
 
-        return testingAccuracy;
+        return (float)_iterationCorrect / DataSize;
+    }
+
+    protected override void OnNewSample() {
+        base.OnNewSample();
+        
+        _iterationCorrect = 0;
     }
 
     protected override void Process(Network network, DataBatch<float> testingData) {
+        IBackend backend = network.Backend;
+        IValueInt correct = backend.CreateValue(0);
+        
         if (multiThread) {
-            ExecuteMultiThread(network, testingData);
+            ExecuteMultiThread(network, testingData, correct);
         } else {
-            Execute(network, testingData);
+            Execute(network, testingData, correct);
         }
+
+        int correctValue = backend.ReadSingle(correct);
+        correct.Dispose();
+
+        _iterationCorrect += correctValue;
     }
 
-    private void Execute(Network network, DataBatch<float> dataBatch) {
+    private void Execute(Network network, DataBatch<float> dataBatch, IValueInt correct) {
         ExecuteSingle(
             dataBatch,
-            () => new VirtualNetwork(network),
-            (local, data) => TestingCalculations(network, data, local, Tracker.Mistakes),
-            (local) => local.Dispose()
+            () => new LocalThread(network),
+            (local, data) => TestingCalculations(network, data, local.VirtualNetwork, local.Wrongs),
+            (local) => {
+                local.VirtualNetwork.AdjustCorrect(correct);
+                Tracker.Update(local.Wrongs);
+                local.VirtualNetwork.Dispose(); 
+            }
         );
     }
 
-    private void ExecuteMultiThread(Network network, DataBatch<float> dataBatch) {
+    private void ExecuteMultiThread(Network network, DataBatch<float> dataBatch, IValueInt correct) {
         ExecuteParallel(
             dataBatch,
             () => new LocalThread(network),
             (local, data) => TestingCalculations(network, data, local.VirtualNetwork, local.Wrongs),
             (local, lockObj) => {
                 lock (lockObj) {
-                    Tracker.Mistakes.AddRange(local.Wrongs);
+                    local.VirtualNetwork.AdjustCorrect(correct);
+                    Tracker.Update(local.Wrongs);
                 }
                 local.VirtualNetwork.Dispose();
             }
@@ -74,14 +84,15 @@ public class Tester(
         public readonly List<DataGuess<float>> Wrongs = [];
     }
 
-    private static void TestingCalculations(Network network, DataSample<float> testingData, VirtualNetwork virtualNetwork, List<DataGuess<float>> wrongs) {
+    private static void TestingCalculations(Network network, DataSample<float> testingData, VirtualNetwork virtualNetwork,
+        List<DataGuess<float>> wrongs) {
         network.Calculate(testingData, virtualNetwork);
-        
+
         if (!virtualNetwork.IsCorrect) {
             wrongs.Add(virtualNetwork.RawGuess);
         }
     }
-    
+
     // Visualizing Data
         
     public static void DrawImages(DataGuess<float>[] wrongs){

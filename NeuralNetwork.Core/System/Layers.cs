@@ -1,3 +1,4 @@
+using NeuralNetwork.Core.System.Backend;
 using NeuralNetwork.Core.System.Data;
 
 namespace NeuralNetwork.Core.System;
@@ -8,7 +9,7 @@ public abstract class BaseLayer(int size, IBackend backend) : IDisposable {
     public int NeuronCount { get; } = size;
     public Layer NextLayer { get; protected internal set; }
         
-    public abstract void Forward(ITensor input, ITensor valuesOut, ITensor activationOut, ISingleValue predictionOut);
+    public abstract void Forward(ITensor input, ITensor valuesOut, ITensor activationOut, IValueInt predictionOut);
     public abstract void Backward(ITensor values, ITensor delta, ITensor deltaOut);
         
     public abstract void BackPropagation(ITensor delta, ITensor activations, ITensor weightDelta, ITensor biasDelta);
@@ -49,7 +50,7 @@ public class Layer : BaseLayer {
         Backend.MatrixTranspose(Weights, WeightsT);
     }
 
-    public override void Forward(ITensor input, ITensor valuesOut, ITensor activationOut, ISingleValue predictionOut) {
+    public override void Forward(ITensor input, ITensor valuesOut, ITensor activationOut, IValueInt predictionOut) {
         Backend.ForwardPass(input, Weights, Bias, valuesOut);
         Backend.Activation(valuesOut, activationOut);
     }
@@ -74,7 +75,7 @@ public class Layer : BaseLayer {
 }
     
 public class InputLayer(int size, IBackend backend) : BaseLayer(size, backend) {
-    public override void Forward(ITensor input, ITensor valuesOut, ITensor activationOut, ISingleValue predictionOut) {
+    public override void Forward(ITensor input, ITensor valuesOut, ITensor activationOut, IValueInt predictionOut) {
         Backend.Input(input, activationOut);
     }
         
@@ -87,7 +88,7 @@ public class OutputLayer : Layer {
     public OutputLayer(int size, IBackend backend, BaseLayer previousLayer, Random random) : base(size, backend, previousLayer, random) { }
     public OutputLayer(int size, IBackend backend, BaseLayer previousLayer, float[] weightsValues, float[] biasValues) : base(size, backend, previousLayer, weightsValues, biasValues) { }
         
-    public override void Forward(ITensor input, ITensor valuesOut, ITensor activationOut, ISingleValue predictionOut) {
+    public override void Forward(ITensor input, ITensor valuesOut, ITensor activationOut, IValueInt predictionOut) {
         Backend.ForwardPass(input, Weights, Bias, valuesOut);
         Backend.Output(valuesOut, activationOut, predictionOut);
     }
