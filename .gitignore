@@ -1,2 +1,8 @@
 ﻿NeuralNetwork.Core/WeightImages
 WrongGuesses
+
+**/bin/
+**/obj/
+
+.idea/
+*sln.DotSettings.user
