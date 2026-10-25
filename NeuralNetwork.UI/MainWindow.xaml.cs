@@ -1,7 +1,7 @@
 ﻿using System.Windows;
 using NeuralNetwork.Core;
 using NeuralNetwork.Core.System;
-using NeuralNetwork.Core.System.Trackers;
+using NeuralNetwork.Core.Trackers;
 
 namespace NeuralNetwork.UI;
 

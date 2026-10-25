@@ -1,4 +1,5 @@
-using NeuralNetwork.Core.System.Backend;
+using NeuralNetwork.Core.Backend;
+using NeuralNetwork.Core.NetworkFormats;
 
 namespace NeuralNetwork.Core.System;
 
@@ -37,7 +38,7 @@ public class NetworkFile(string filepath) {
 
         using BinaryReader reader = new BinaryReader(File.OpenRead(FilePath));
 
-        string header = reader.ReadString();
+        reader.ReadString(); // header
         float accuracy = reader.ReadSingle();
 
         int layerAmount = reader.ReadInt32();
@@ -72,7 +73,7 @@ public class NetworkFile(string filepath) {
 
         using BinaryReader reader = new BinaryReader(File.OpenRead(FilePath));
 
-        string header = reader.ReadString();
+        reader.ReadString(); // header
         return reader.ReadSingle();
             
     }

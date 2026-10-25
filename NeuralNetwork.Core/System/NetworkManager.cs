@@ -3,8 +3,10 @@ using ILGPU;
 using ILGPU.Runtime;
 using ILGPU.Runtime.Cuda;
 using ILGPU.Runtime.OpenCL;
-using NeuralNetwork.Core.System.Backend;
-using NeuralNetwork.Core.System.Data;
+using NeuralNetwork.Core.Backend;
+using NeuralNetwork.Core.Data;
+using NeuralNetwork.Core.Iterators;
+using NeuralNetwork.Core.NetworkFormats;
 
 namespace NeuralNetwork.Core.System;
 
@@ -53,13 +55,21 @@ public static class NetworkManager {
     public static async Task GroupTraining(bool save = false) {
         if (_accelerator == null) throw new NullReferenceException("No accelerator loaded.");
         
-        Grower = new NetworkGrower(_processors, TrainingData, _repeats, TestingData);
+        Grower = new NetworkGrower(_processors,
+            new LearningRateManager(0.085f, 0.9f, 5)
+        );
+        Grower.LoadBatch(TrainingData, _repeats, TestingData);
+        
         Network = await Grower.GenTrain(
             Network,
             _generations,
             new NetworkGrowerInfo(
-                _defaultLearningRate,
                 _rngSeed,
+                new LearningRateManager(
+                    _defaultLearningRate,
+                    0.90f,
+                    5
+                ),
                 new MutationStrengthManager(
                     _mutationStrength,
                     _mutationDecay

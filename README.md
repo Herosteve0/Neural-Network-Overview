@@ -1,4 +1,4 @@
-# Neurtal-Network-Overview
+# Neural Network Overview
 An open-source project I built to understand and share what I've learned about neural networks and deep learning. It includes different implementations, training-loss graphs, time and space complexity analysis, and explanations of the mathematics behind the network.
 
 The goal is to explore both how neural networks learn and how different implementations affect their performance.
@@ -14,17 +14,9 @@ This is a testing commit, as I've yet to test and clean up the code. As you will
 
 # Navigation
 
-The main code is inside _**NeuralNetwork.Core/System**_ and you can find most information about each class in it's respective comment (if I forgot to comment something, oops)
+The main code is inside _**NeuralNetwork.Core**_ and you can find most information about each class in it's respective comment (if I forgot to comment something, oops)
 
-Main things to know:
-- System/Backend: Every calculation that is ever executed is in there. As well as all the implementations (Scalar, CPU SIMD, GPU)
-- System/Networks: Contains the main structure of a network and a virtual network. Which essentially just hold layers together.
-- System/Layers: Contains the main structure of a layer (Input, Output and Hidden). Essentially what holds weights and bias together.
-- System/NetworkScanner: A class that iterates through a network.
-- System/Trainer: A network scanner used to train a network.
-- System/Tester: A network scanner used to test a network.
-- System/NetworkGrower: Work in progress, but it's essentially a parallel trainer with mutations.
-- System/NetworkManager: A static placeholder.
+Inside _**NeuralNetwork.UI**_ is the visualization of a Network Grower, which trains multiple mutations over multiple generations and returns the best one.
 
 # Math
 
