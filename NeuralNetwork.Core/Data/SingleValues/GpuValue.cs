@@ -26,13 +26,20 @@ public class GpuValue<T> : ISingleValue<T> where T : unmanaged{
 
         Buffer = accelerator.Allocate1D<T>(1);
     }
+
     /**
      * <summary>
      * Create a GPU tensor and initializes it with CPU data.
      * </summary>
      */
     public GpuValue(Accelerator accelerator, T data) : this(accelerator) {
-        Buffer.CopyFromCPU([data]);
+        try {
+            Buffer.CopyFromCPU([data]);
+        } catch {
+            Buffer.Dispose();
+            _disposed = true;
+            throw;
+        }
     }
 
     /**
@@ -42,6 +49,7 @@ public class GpuValue<T> : ISingleValue<T> where T : unmanaged{
      */
     public void Dispose() {
         if (_disposed) return;
+        GC.SuppressFinalize(this);
 
         Buffer.Dispose();
         _disposed = true;

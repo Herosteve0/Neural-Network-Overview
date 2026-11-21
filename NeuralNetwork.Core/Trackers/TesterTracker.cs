@@ -7,9 +7,9 @@ public class TesterTracker(int breathTicks) : ScannerTracker(breathTicks) {
 
 	public int Wrong => _mistakes.Count;
 	public int Correct => TotalExamples - Wrong;
-	public float Accuracy => Correct / (float)TotalExamples * 100;
+	public float Accuracy => TotalExamples == 0 ? 0f : Correct / (float)TotalExamples * 100;
 
-	public override void Reset() {
+	protected override void Reset() {
 		base.Reset();
 		_mistakes = [];
 	}

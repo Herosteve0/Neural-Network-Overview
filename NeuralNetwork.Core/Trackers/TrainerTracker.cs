@@ -6,10 +6,10 @@ public class TrainerTracker(int breathTicks) : ScannerTracker(breathTicks) {
 	private float _loss;
 	private int _correct;
 	
-	public float Loss => CurrentIteration == 0 ? 0 : _loss / CurrentIteration;
+	public float Loss => Progress == 0 ? 0 : _loss / Progress;
 	public float Accuracy => Progress == 0 ? 0 : 100f * _correct / Progress;
 
-	public override void Reset() {
+	protected override void Reset() {
 		base.Reset();
 		
 		_loss = 0f;

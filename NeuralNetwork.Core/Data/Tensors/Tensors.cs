@@ -53,10 +53,6 @@ public abstract class BaseTensor<T> : ITensor<T> where T : unmanaged {
         }
     }
 
-    protected int LengthFromShape(params int[] shape) {
-        return shape.Aggregate(1, (current, i) => current * i);
-    }
-
     /**
      * <summary>
      * Converts a Nth space point to an index for the data array.

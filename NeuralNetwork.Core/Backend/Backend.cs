@@ -6,10 +6,6 @@ namespace NeuralNetwork.Core.Backend;
 
 public interface IBackend {
 	/**
-	 * Creates an appropriate tensor.
-	 */
-	ITensor<T> CreateTensor<T>(params int[] shape) where T : unmanaged;
-	/**
 	 * Creates an appropriate tensor filled with the given value.
 	 */
 	ITensor<T> CreateTensor<T>(T value, params int[] shape) where T : unmanaged;
@@ -24,6 +20,12 @@ public interface IBackend {
 	 */
 	ISingleValue<T> CreateValue<T>(T data) where T : unmanaged;
 
+	/**
+	 * Copies the values of the first tensor to the second.
+	 * Tensors must be of the same type.
+	 */
+	void Copy<T>(ITensor<T> from, ITensor<T> to) where T : unmanaged;
+	
 	/**
 	 * Sets the tensor values to a given array.
 	 */
@@ -51,153 +53,68 @@ public interface IBackend {
 	 * Checks whether the prediction was correct and increases a given accuracy value if so.
 	 */
 	public void CheckAnswer(ISingleValue<int> prediction, ISingleValue<int> label, ISingleValue<int> accuracyOut);
-	
-	/**
-	 * Returns a Transposed Matrix.
-	 */
-	void MatrixTranspose(ITensor<float> a, ITensor<float> output);
 
-	/**
-	 * Returns the Loss
-	 */
-	void Loss(ITensor<float> activation, ISingleValue<int> label, ISingleValue<float> lossOut);
-	
 	/**
 	 * The calculations for Activations of the first layer.
 	 */
 	void Input(ITensor<float> input, ITensor<float> activationOut);
 
-	/**
-	 * The calculation for the Values of a Layer.
-	 */
-	void ForwardPass(ITensor<float> input, ITensor<float> weights, ITensor<float> bias, ITensor<float> valuesOut);
-		
-	/**
-	 * The calculations for the Activations of a Layer.
-	 */
-	void Activation(ITensor<float> values, ITensor<float> activationOut);
-	/**
-	 * The calculations for the Output of the last layer.
-	 */
-	void Output(ITensor<float> values, ITensor<float> activationOut, ISingleValue<int> predictionOut);
+	void MaxIndex(ITensor<float> input, ISingleValue<int> indexOut);
+	
+	void Synchronize();
+}
 
+public interface IMatrixBackend {
+	/**
+	 * Sets the output to the input multiplied by the weights, plus the bias.
+	 * <example>
+	 * output = weights * input + bias
+	 * </example>
+	 */
+	void Linear(ITensor<float> input, ITensor<float> weights, ITensor<float> bias, ITensor<float> output);
+	
 	/**
 	 * The calculations for the Delta value that will be applied to the Weights and Biases.
 	 */
-	void Backward(ITensor<float> values, ITensor<float> delta, ITensor<float> weightsT, ITensor<float> deltaOut);
-	/**
-	 * The calculations for the initial Delta value at the output Layer.
-	 */
-	void BackwardOutput(ITensor<float> activations, ITensor<float> expectedValues, ITensor<float> deltaOut);
+	void Delta(ITensor<float> delta, ITensor<float> weights, ITensor<float> deltaOut);
+	
 	/**
 	 * The calculations for the change that will be applied to the Weights and Biases.
 	 */
 	void BackPropagation(ITensor<float> delta, ITensor<float> activations, ITensor<float> weightDelta, ITensor<float> biasDelta);
-		
-	/**
-	 * Adjusts the Weights and Biases in proportion with the calculated Delta.
-	 */
-	void Adjust(ITensor<float> weightDelta, ITensor<float> biasDelta, float scale, ITensor<float> weights, ITensor<float> weightsT, ITensor<float> bias);
-
-	void Synchronize();
 }
+
+public interface IElementwiseBackend {
+	/**
+	* Adjusts the Weights and Biases in proportion with the calculated Delta.
+	*/
+	void Adjust(ITensor<float> weightDelta, ITensor<float> biasDelta, float scale, ITensor<float> weights, ITensor<float> bias);
 	
-// CPU
+	void Dropout(ITensor<float> input, ITensor<float> mask, ITensor<float> output);
+}
 
-public abstract class CpuBackend : IBackend {
-	public ITensor<T> CreateTensor<T>(params int[] shape) where T : unmanaged {
-		return new CpuTensor<T>(shape);
-	}
-	public ITensor<T> CreateTensor<T>(T value, params int[] shape) where T : unmanaged {
-		return new CpuTensor<T>(value, shape);
-	}
-	public ITensor<T> CreateTensor<T>(T[] data, params int[] shape) where T : unmanaged {
-		return new CpuTensor<T>(data, shape);
-	}
+public interface IRandomBackend {
+	void GenerateDropoutMask(Random random, float dropoutChance, ITensor<float> maskOut);
+}
+
+public interface IActivationBackend {
+	void ReLu_Forward(ITensor<float> input, ITensor<float> output);
+	void ReLu_Backward(ITensor<float> input, ITensor<float> output);
+
+	void LeakyReLu_Forward(ITensor<float> input, float a, ITensor<float> output);
+	void LeakyReLu_Backward(ITensor<float> input, float a, ITensor<float> output);
+
+	void Sigmoid_Forward(ITensor<float> input, ITensor<float> output);
+	void Sigmoid_Backward(ITensor<float> input, ITensor<float> output);
 	
-	public ISingleValue<T> CreateValue<T>(T data) where T : unmanaged {
-		return new CpuValue<T>(data);
-	}
-	
-	public void Set<T>(ITensor<T> a, T[] data) where T : unmanaged {
-		((CpuTensor<T>)a).Data = data;
-	}
-	public T[] Read<T>(ITensor<T> a) where T : unmanaged {
-		return ((CpuTensor<T>)a).Data.ToArray();
-	}
-	public void SetSingle<T>(ISingleValue<T> a, T data) where T : unmanaged {
-		((CpuValue<T>)a).Value = data;
-	}
-	public T ReadSingle<T>(ISingleValue<T> a) where T : unmanaged {
-		return ((CpuValue<T>)a).Value;
-	}
+	void Softmax_Forward(ITensor<float> input, ITensor<float> output, ISingleValue<int> predictionOut);
+	void Softmax_Backward(ITensor<float> input, ITensor<float> output);
+}
 
-	public void AddSingle<T>(ISingleValue<T> value, ISingleValue<T> change) where T : unmanaged, INumber<T> {
-		CpuValue<T> cpuValue = (CpuValue<T>)value;
-		CpuValue<T> cpuChange = (CpuValue<T>)change;
+public interface ILossBackend {
+	void MSE_Calculate(ITensor<float> activation, ISingleValue<int> label, float a, ISingleValue<float> lossOut);
+	void MSE_Backward(ITensor<float> input, ITensor<float> expectedInput, float a, ITensor<float> output);
 
-		cpuValue.Value += cpuChange;
-	}
-
-	public void MatrixTranspose(ITensor<float> a, ITensor<float> output) {
-		CpuMatrixTranspose((CpuTensor<float>)a, (CpuTensor<float>)output);
-	}
-
-	public void CheckAnswer(ISingleValue<int> prediction, ISingleValue<int> label, ISingleValue<int> accuracyOut) {
-		if (((CpuValue<int>)prediction).Value == ((CpuValue<int>)label).Value) {
-			((CpuValue<int>)accuracyOut).Value++;
-		}
-	}
-	
-	public void Loss(ITensor<float> activation, ISingleValue<int> label, ISingleValue<float> lossOut) {
-		CpuLoss((CpuTensor<float>)activation, (CpuValue<int>)label, (CpuValue<float>)lossOut);
-	}
-
-	public void Input(ITensor<float> input, ITensor<float> activationOut) {
-		CpuInput((CpuTensor<float>)input, (CpuTensor<float>)activationOut);
-	}
-
-	public void ForwardPass(ITensor<float> input, ITensor<float> weights, ITensor<float> bias, ITensor<float> valuesOut) {
-		CpuForwardPass((CpuTensor<float>)input, (CpuTensor<float>)weights, (CpuTensor<float>)bias, (CpuTensor<float>)valuesOut);
-	}
-	public void Activation(ITensor<float> values, ITensor<float> activationOut) {
-		CpuActivation((CpuTensor<float>)values, (CpuTensor<float>)activationOut);
-	}
-	public void Output(ITensor<float> values, ITensor<float> activationOut, ISingleValue<int> predictionOut) {
-		CpuOutput((CpuTensor<float>)values, (CpuTensor<float>)activationOut, (CpuValue<int>)predictionOut);
-	}
-
-	public void Backward(ITensor<float> values, ITensor<float> delta, ITensor<float> weightsT, ITensor<float> deltaOut) {
-		CpuBackward((CpuTensor<float>)values, (CpuTensor<float>)delta, (CpuTensor<float>)weightsT, (CpuTensor<float>)deltaOut);
-	}
-
-	public void BackwardOutput(ITensor<float> activations, ITensor<float> expectedValues, ITensor<float> deltaOut) {
-		CpuBackwardOutput((CpuTensor<float>)activations, (CpuTensor<float>)expectedValues, (CpuTensor<float>)deltaOut);
-	}
-
-	public void BackPropagation(ITensor<float> delta, ITensor<float> activations, ITensor<float> weightDelta, ITensor<float> biasDelta) {
-		CpuBackPropagation((CpuTensor<float>)delta, (CpuTensor<float>)activations, (CpuTensor<float>)weightDelta, (CpuTensor<float>)biasDelta);
-	}
-
-	public void Adjust(ITensor<float> weightDelta, ITensor<float> biasDelta, float scale, ITensor<float> weights, ITensor<float> weightsT, ITensor<float> bias) {
-		CpuAdjust((CpuTensor<float>)weightDelta, (CpuTensor<float>)biasDelta, scale, (CpuTensor<float>)weights, (CpuTensor<float>)weightsT, (CpuTensor<float>)bias);
-	}
-
-	public void Synchronize() { }
-
-	protected abstract void CpuMatrixTranspose(CpuTensor<float> a, CpuTensor<float> output);
-
-	protected abstract void CpuLoss(CpuTensor<float> activation, CpuValue<int> label, CpuValue<float> lossOut);
-	
-	protected abstract void CpuInput(CpuTensor<float> input, CpuTensor<float> activationOut);
-		
-	protected abstract void CpuForwardPass(CpuTensor<float> input, CpuTensor<float> weights, CpuTensor<float> bias, CpuTensor<float> valuesOut);
-	protected abstract void CpuActivation(CpuTensor<float> values, CpuTensor<float> activationOut);
-	protected abstract void CpuOutput(CpuTensor<float> values, CpuTensor<float> activationOut, CpuValue<int> predictionOut);
-		
-	protected abstract void CpuBackward(CpuTensor<float> values, CpuTensor<float> delta, CpuTensor<float> weightsT, CpuTensor<float> deltaOut);
-	protected abstract void CpuBackwardOutput(CpuTensor<float> activations, CpuTensor<float> expectedValues, CpuTensor<float> deltaOut);
-	protected abstract void CpuBackPropagation(CpuTensor<float> delta, CpuTensor<float> activations, CpuTensor<float> weightDelta, CpuTensor<float> biasDelta);
-		
-	protected abstract void CpuAdjust(CpuTensor<float> weightDelta, CpuTensor<float> biasDelta, float scale, CpuTensor<float> weights, CpuTensor<float> weightsT, CpuTensor<float> bias);
+	void CrossEntropy_Calculate(ITensor<float> activation, ISingleValue<int> label, ISingleValue<float> lossOut);
+	void CrossEntropy_Backward(ITensor<float> input, ITensor<float> expectedInput,ITensor<float> output);
 }

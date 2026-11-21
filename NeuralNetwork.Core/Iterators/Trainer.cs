@@ -2,102 +2,10 @@ using NeuralNetwork.Core.Backend;
 using NeuralNetwork.Core.Data;
 using NeuralNetwork.Core.Data.SingleValues;
 using NeuralNetwork.Core.NetworkFormats;
+using NeuralNetwork.Core.NetworkFormats.Layers.State;
 using NeuralNetwork.Core.Trackers;
 
 namespace NeuralNetwork.Core.Iterators;
-
-/**
- * Allows flexible control over the Learning Rate.
- */
-public class LearningRateManager {
-    /**
-     * Learning Rate with no decay.
-     * <param name="learningRate">
-     * The Learning Rate value.
-     * </param>
-     */
-    public LearningRateManager(float learningRate) {
-        BaseLearningRate = learningRate;
-        ResetLearningRate();
-
-        _hasDecay = false;
-    }
-    /**
-     * <param name="learningRate">
-     * The Learning Rate value.
-     * </param>
-     * <param name="decayMultiplier">
-     * The scalar of the learning rate.
-     * </param>
-     * <param name="decayPatience">
-     * The amount of high losses in a row required to decay the learning rate.
-     * </param>
-     */
-    public LearningRateManager(float learningRate, float decayMultiplier, int decayPatience) {
-        BaseLearningRate = learningRate;
-        ResetLearningRate();
-        
-        _hasDecay = true;
-            
-        _decayMultiplier = decayMultiplier;
-        _decayPatience = decayPatience;
-    }
-
-    private float BaseLearningRate { get; }
-    private float LearningRate { get; set; }
-
-    private readonly bool _hasDecay;
-    private readonly float _decayMultiplier;
-    private readonly float _decayPatience;
-
-    private int _patienceCounter;
-    private float _minLoss = float.PositiveInfinity;
-
-    public static implicit operator float(LearningRateManager info) {
-        return info?.LearningRate ?? 0f;
-    }
-    
-    /*
-     * For more info, paste this in https://www.desmos.com/calculator
-     * f\left(x\right)=\frac{\ln\left(c\left(1-x\right)+1\right)}{10\ln\left(c+1\right)}\left\{0\le x\le1\right\}
-     */
-    public static float SetFromAccuracy(float accuracy, float sharpness = 0f) {
-        if (sharpness == 0f) {
-            return (1 - accuracy) / 10f;
-        }
-        return (float)(Math.Log(1 + sharpness * (1 - accuracy)) / Math.Log(1 + sharpness)) / 10f;
-    }
-
-    public bool HasDecayed => LearningRate == 0f;
-
-    
-    public void SetLearningRate(float learningRate) {
-        LearningRate = learningRate;
-    }
-    public void ResetLearningRate() {
-        LearningRate = BaseLearningRate;
-    }
-        
-    public void CheckLoss(float loss) {
-        if (!_hasDecay) return;
-            
-        if (loss < _minLoss) {
-            _minLoss = loss;
-            _patienceCounter = 0;
-            return;
-        }
-            
-        _patienceCounter++;
-        if (_patienceCounter <= _decayPatience) return;
-            
-        _patienceCounter = 0;
-        ApplyDecay();
-    }
-
-    private void ApplyDecay() {
-        LearningRate *= _decayMultiplier;
-    }
-}
 
 /**
  * A Network Scanner used to train networks.
@@ -121,10 +29,11 @@ public class Trainer(
     int batchSize,
     int bufferSize,
     int breathTicks,
-    LearningRateManager learningInfo,
+    LearningRate learningInfo,
     bool multiThread = false
 ) : NetworkScanner<TrainerTracker>(batchSize, bufferSize, breathTicks) {
     private float _lossGain;
+    private float _iterationLoss;
     private int _correctGain;
     
     public async Task<TimeSpan> Train(Network network, Random random) {
@@ -135,6 +44,19 @@ public class Trainer(
     public async Task<TimeSpan> Train(Network network, Random random, float learningRate) {
         learningInfo.SetLearningRate(learningRate);
         return await IterateNetwork(network, random);
+    }
+
+    protected override void OnNewSample() {
+        base.OnNewSample();
+        _iterationLoss = 0f;
+    }
+
+    protected override void OnEndSample() {
+        base.OnEndSample();
+        learningInfo.CheckLoss(_iterationLoss / DataSize);
+        if (learningInfo.HasDecayed) {
+            ForceStop();
+        }
     }
 
     protected override void OnBreath() {
@@ -218,7 +140,7 @@ public class Trainer(
         virtualNetwork.LoadBuffer(trainingBuffer);
         
         virtualNetwork.ProcessFullBuffer(() => {
-                virtualNetwork.CompleteForwardPass(network);
+                virtualNetwork.CompleteForwardPass(network, PassMode.Training);
                 virtualNetwork.IterateBackward(network);
             }
         );

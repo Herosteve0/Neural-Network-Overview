@@ -4,5 +4,6 @@ WrongGuesses
 **/bin/
 **/obj/
 
+.vs/
 .idea/
 *sln.DotSettings.user

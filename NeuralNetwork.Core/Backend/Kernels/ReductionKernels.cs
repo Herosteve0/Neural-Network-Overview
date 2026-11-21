@@ -27,82 +27,108 @@ public class ReductionKernels(Accelerator accelerator) {
 		Action<Index1D, int, FloatView, FloatView> kernel
 	) {
 		int count = input.Length;
-			
-		MemoryBuffer1D<float, Stride1D.Dense> inputBuffer = accelerator.Allocate1D<float>(count);
-		MemoryBuffer1D<float, Stride1D.Dense> outputBuffer = accelerator.Allocate1D<float>((count + 1) / 2);
-			
-		input.View.CopyTo(inputBuffer.View);
-			
-		while (count > 1) {
-			int outputSize = (count + 1) / 2;
+		
+		MemoryBuffer1D<float, Stride1D.Dense> inputBuffer = null;
+		MemoryBuffer1D<float, Stride1D.Dense> outputBuffer = null;
 
-			kernel(
-				outputSize,
-				count,
-				inputBuffer.View,
-				outputBuffer.View
-			);
+		try {
+			inputBuffer = accelerator.Allocate1D<float>(count);
+			outputBuffer = accelerator.Allocate1D<float>((count + 1) / 2);
 
-			SwapView(ref inputBuffer, ref outputBuffer);
-				
-			count = outputSize;
+			input.View.CopyTo(inputBuffer.View);
+
+			while (count > 1) {
+				int outputSize = (count + 1) / 2;
+
+				kernel(
+					outputSize,
+					count,
+					inputBuffer.View,
+					outputBuffer.View
+				);
+
+				SwapView(ref inputBuffer, ref outputBuffer);
+
+				count = outputSize;
+			}
+
+			inputBuffer.View.SubView(0, 1)
+				.CopyTo(output.View.SubView(0, 1));
+
+			accelerator.Synchronize();
+		} finally {
+			try {
+				accelerator.Synchronize();
+			} catch {
+				inputBuffer?.Dispose();
+				outputBuffer?.Dispose();
+			}
 		}
-
-		inputBuffer.View.SubView(0, 1)
-			.CopyTo(output.View.SubView(0,1));
-			
-		accelerator.Synchronize();
-			
-		inputBuffer.Dispose();
-		outputBuffer.Dispose();
 	}
 	private void ReductionToValueAndIndex(GpuTensor<float> input, GpuValue<float> outputValue, GpuValue<int> outputIndex,
 		Action<Index1D, int, FloatView, IntView, FloatView, IntView> kernel
 	) {
 		int count = input.Length;
 			
-		MemoryBuffer1D<float, Stride1D.Dense> inputValuesBuffer = accelerator.Allocate1D<float>(count);
-		MemoryBuffer1D<int, Stride1D.Dense> inputIndicesBuffer = accelerator.Allocate1D<int>(count);
-		MemoryBuffer1D<float, Stride1D.Dense> outputValuesBuffer = accelerator.Allocate1D<float>((count + 1) / 2);
-		MemoryBuffer1D<int, Stride1D.Dense> outputIndicesBuffer = accelerator.Allocate1D<int>((count + 1) / 2);
-			
-		input.View.CopyTo(inputValuesBuffer.View);
+		MemoryBuffer1D<float, Stride1D.Dense> inputValuesBuffer = null;
+		MemoryBuffer1D<int, Stride1D.Dense> inputIndicesBuffer = null;
+		MemoryBuffer1D<float, Stride1D.Dense> outputValuesBuffer = null;
+		MemoryBuffer1D<int, Stride1D.Dense> outputIndicesBuffer = null;
 
-		int[] indices = new int[count];
-		for (int i = 0; i < count; i++) {
-			indices[i] = i;
+		try {
+			inputValuesBuffer = accelerator.Allocate1D<float>(count);
+			inputIndicesBuffer = accelerator.Allocate1D<int>(count);
+			outputValuesBuffer = accelerator.Allocate1D<float>((count + 1) / 2);
+			outputIndicesBuffer = accelerator.Allocate1D<int>((count + 1) / 2);
+
+			input.View.CopyTo(inputValuesBuffer.View);
+
+			int[] indices = new int[count];
+			for (int i = 0; i < count; i++) {
+				indices[i] = i;
+			}
+
+			inputIndicesBuffer.View.CopyFromCPU(indices);
+
+			while (count > 1) {
+				int outputSize = (count + 1) / 2;
+
+				kernel(
+					outputSize,
+					count,
+					inputValuesBuffer.View,
+					inputIndicesBuffer.View,
+					outputValuesBuffer.View,
+					outputIndicesBuffer.View
+				);
+
+				SwapView(ref inputValuesBuffer, ref outputValuesBuffer);
+				SwapView(ref inputIndicesBuffer, ref outputIndicesBuffer);
+
+				count = outputSize;
+			}
+
+			if (outputValue != null) {
+				inputValuesBuffer.View.SubView(0, 1)
+					.CopyTo(outputValue.View.SubView(0, 1));
+			}
+
+			if (outputIndex != null) {
+				inputIndicesBuffer.View.SubView(0, 1)
+					.CopyTo(outputIndex.View.SubView(0, 1));
+			}
+
+			accelerator.Synchronize();
+		} finally {
+			try {
+				accelerator.Synchronize();
+			} catch {
+				inputValuesBuffer?.Dispose();
+				inputIndicesBuffer?.Dispose();
+				outputValuesBuffer?.Dispose();
+				outputIndicesBuffer?.Dispose();
+			}
 		}
-		inputIndicesBuffer.View.CopyFromCPU(indices);
-			
-		while (count > 1) {
-			int outputSize = (count + 1) / 2;
-
-			kernel(
-				outputSize,
-				count,
-				inputValuesBuffer.View,
-				inputIndicesBuffer.View,
-				outputValuesBuffer.View,
-				outputIndicesBuffer.View
-			);
-
-			SwapView(ref inputValuesBuffer, ref outputValuesBuffer);
-			SwapView(ref inputIndicesBuffer, ref outputIndicesBuffer);
-				
-			count = outputSize;
-		}
-
-		inputValuesBuffer.View.SubView(0, 1)
-			.CopyTo(outputValue.View.SubView(0,1));
-		inputIndicesBuffer.View.SubView(0, 1)
-			.CopyTo(outputIndex.View.SubView(0,1));
-			
-		accelerator.Synchronize();
-			
-		inputValuesBuffer.Dispose();
-		inputIndicesBuffer.Dispose();
-		outputValuesBuffer.Dispose();
-		outputIndicesBuffer.Dispose();
 	}
 
 	public void MaxIndex(GpuTensor<float> input, GpuValue<float> outputValue, GpuValue<int> outputIndex) {

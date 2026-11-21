@@ -9,55 +9,62 @@ namespace NeuralNetwork.Core.Backend;
 /**
  * Gpu powered backend.
  */
-public class GpuBackend : IBackend {
+public class GpuBackend : IBackend, IMatrixBackend, IElementwiseBackend, IRandomBackend, IActivationBackend,
+	ILossBackend {
 
 	private readonly Accelerator _accelerator;
 
-	private readonly ArithmeticKernels _arithmeticKernels;
+	private readonly ElementwiseKernels _elementwiseKernels;
 	private readonly MatrixKernels _matrixKernels;
 	private readonly ReductionKernels _reductionKernels;
-	private readonly FunctionKernels _functionKernels;
-	private readonly MnistNeuralNetworkKernels _networkKernels;
+	private readonly ActivationKernels _activationKernels;
+	private readonly LossKernels _lossKernels;
 
 	public GpuBackend(Accelerator accelerator) {
 		_accelerator = accelerator;
 
 		Console.WriteLine($"Using Gpu Backend, on device: {accelerator.Name}");
 
-		_arithmeticKernels = new ArithmeticKernels(accelerator);
+		_elementwiseKernels = new ElementwiseKernels(accelerator);
 		_matrixKernels = new MatrixKernels(accelerator);
 		_reductionKernels = new ReductionKernels(accelerator);
-		_functionKernels = new FunctionKernels(accelerator);
-		_networkKernels = new MnistNeuralNetworkKernels(accelerator);
+		_activationKernels = new ActivationKernels(accelerator);
+		_lossKernels = new LossKernels(accelerator);
 	}
 
-	public ITensor<T> CreateTensor<T>(params int[] shape) where T : unmanaged {
-		return new GpuTensor<T>(_accelerator, shape);
-	}
+	/* IBackend */
+
 	public ITensor<T> CreateTensor<T>(T value, params int[] shape) where T : unmanaged {
 		return new GpuTensor<T>(_accelerator, value, shape);
 	}
+
 	public ITensor<T> CreateTensor<T>(T[] data, params int[] shape) where T : unmanaged {
 		return new GpuTensor<T>(_accelerator, data, shape);
 	}
-	
+
 	public ISingleValue<T> CreateValue<T>(T data) where T : unmanaged {
 		return new GpuValue<T>(_accelerator, data);
 	}
-	
+
+	public void Copy<T>(ITensor<T> from, ITensor<T> to) where T : unmanaged {
+		((GpuTensor<T>)from).View.CopyTo(((GpuTensor<T>)to).View);
+	}
+
 	public void Set<T>(ITensor<T> a, T[] data) where T : unmanaged {
 		((GpuTensor<T>)a).Buffer.CopyFromCPU(data);
 	}
+
 	public T[] Read<T>(ITensor<T> a) where T : unmanaged {
 		T[] r = new T[a.Length];
 		_accelerator.Synchronize();
 		((GpuTensor<T>)a).Buffer.CopyToCPU(r);
 		return r;
 	}
-	
+
 	public void SetSingle<T>(ISingleValue<T> a, T data) where T : unmanaged {
 		((GpuValue<T>)a).Buffer.CopyFromCPU([data]);
 	}
+
 	public T ReadSingle<T>(ISingleValue<T> a) where T : unmanaged {
 		T[] r = new T[1];
 		_accelerator.Synchronize();
@@ -69,55 +76,29 @@ public class GpuBackend : IBackend {
 		if (typeof(T) == typeof(float)) {
 			GpuValue<float> gValue = (GpuValue<float>)value;
 			GpuValue<float> gChange = (GpuValue<float>)change;
-			
-			_arithmeticKernels.Addition(1, gValue.View, gChange.View, gValue.View);
+
+			_elementwiseKernels.IncreaseFloat(1, gValue.View, gChange.View);
 		} else if (typeof(T) == typeof(int)) {
 			GpuValue<int> gValue = (GpuValue<int>)value;
 			GpuValue<int> gChange = (GpuValue<int>)change;
-			
-			_arithmeticKernels.AdditionInt(1, gValue.View, gChange.View, gValue.View);
+
+			_elementwiseKernels.IncreaseInt(1, gValue.View, gChange.View);
 		} else {
 			throw new Exception("Gpu addition only supports type: float, int.");
 		}
 	}
-	
+
 	public void CheckAnswer(ISingleValue<int> prediction, ISingleValue<int> label, ISingleValue<int> accuracyOut) {
 		GpuValue<int> gPrediction = (GpuValue<int>)prediction;
 		GpuValue<int> gLabel = (GpuValue<int>)label;
 		GpuValue<int> gAccuracyOut = (GpuValue<int>)accuracyOut;
-		
-		_arithmeticKernels.IncreaseIfEqual(
+
+		_lossKernels.CheckAnswer(
 			1,
 			gPrediction.View,
 			gLabel.View,
 			gAccuracyOut.View
 		);
-	}
-
-	public void MatrixTranspose(ITensor<float> a, ITensor<float> output) {
-		GpuTensor<float> gInput = (GpuTensor<float>)a;
-		GpuTensor<float> gOutput = (GpuTensor<float>)output;
-
-		int outputSize = gInput.Length;
-
-		int rows = gInput.Shape[0];
-		int cols = gInput.Shape[1];
-
-		_matrixKernels.Transpose(
-			outputSize,
-			rows,
-			cols,
-			gInput.View,
-			gOutput.View
-		);
-	}
-
-	public void Loss(ITensor<float> activation, ISingleValue<int> label, ISingleValue<float> lossOut) {
-		GpuTensor<float> gActivation = (GpuTensor<float>)activation;
-		GpuValue<int> gLabel = (GpuValue<int>)label;
-		GpuValue<float> gLossOut = (GpuValue<float>)lossOut;
-		
-		_networkKernels.Loss(1, gActivation.View, gLabel.View, gLossOut.View);
 	}
 
 	public void Input(ITensor<float> input, ITensor<float> activationOut) {
@@ -126,20 +107,33 @@ public class GpuBackend : IBackend {
 
 		int outputSize = activationOut.Shape[0];
 
-		_networkKernels.Input(
+		_elementwiseKernels.Input(
 			outputSize,
 			gInput.View,
 			gActivationOut.View
 		);
 	}
 
-	public void ForwardPass(ITensor<float> input, ITensor<float> weights, ITensor<float> bias, ITensor<float> valuesOut) {
+	public void MaxIndex(ITensor<float> input, ISingleValue<int> indexOut) {
+		GpuTensor<float> gInput = (GpuTensor<float>)input;
+		GpuValue<int> gIndexOut = (GpuValue<int>)indexOut;
+
+		_reductionKernels.MaxIndex(gInput, null, gIndexOut);
+	}
+
+	public void Synchronize() {
+		_accelerator.Synchronize();
+	}
+
+	/* IMatrixBackend */
+
+	public void Linear(ITensor<float> input, ITensor<float> weights, ITensor<float> bias, ITensor<float> output) {
 		GpuTensor<float> gInput = (GpuTensor<float>)input;
 		GpuTensor<float> gWeights = (GpuTensor<float>)weights;
 		GpuTensor<float> gBias = (GpuTensor<float>)bias;
-		GpuTensor<float> gValuesOut = (GpuTensor<float>)valuesOut;
+		GpuTensor<float> gOutput = (GpuTensor<float>)output;
 
-		int outputSize = valuesOut.Shape[0];
+		int outputSize = output.Shape[0];
 		int inputSize = input.Shape[0];
 
 		_matrixKernels.Linear(
@@ -148,85 +142,31 @@ public class GpuBackend : IBackend {
 			gWeights.View,
 			gInput.View,
 			gBias.View,
-			gValuesOut.View
+			gOutput.View
 		);
 	}
 
-	public void Activation(ITensor<float> values, ITensor<float> activationOut) {
-		GpuTensor<float> gValues = (GpuTensor<float>)values;
-		GpuTensor<float> gActivationOut = (GpuTensor<float>)activationOut;
-
-		int outputSize = activationOut.Shape[0];
-
-		_functionKernels.ReLu(
-			outputSize,
-			gValues.View,
-			gActivationOut.View
-		);
-	}
-
-	public void Output(ITensor<float> values, ITensor<float> activationOut, ISingleValue<int> predictionOut) {
-		GpuTensor<float> gValues = (GpuTensor<float>)values;
-		GpuTensor<float> gActivationOut = (GpuTensor<float>)activationOut;
-		GpuValue<int> gPredictionOut = (GpuValue<int>)predictionOut;
-
-		int outputSize = activationOut.Shape[0];
-
-		// max, so we avoid large values, as well as the prediction the network made
-		GpuValue<float> value = (GpuValue<float>)CreateValue(0f);
-		_reductionKernels.MaxIndex(gValues, value, gPredictionOut);
-			
-		// e^(z[i] - max) for all i (i = row)
-		GpuTensor<float> e = (GpuTensor<float>)CreateTensor<float>(gValues.Shape.ToArray());
-		_arithmeticKernels.GpuConstantExponentiateSubtract(outputSize, gValues.View, value.View, e.View);
-
-		// sum of e^z[i] for all i
-		_reductionKernels.Sum(e, value);
-		
-		// e^z[i] / sum, aka the soft max
-		_arithmeticKernels.GpuConstDivision(outputSize, e.View, value.View, gActivationOut.View);
-	
-		_accelerator.Synchronize();
-
-		e.Dispose();
-		value.Dispose();
-	}
-
-	public void Backward(ITensor<float> values, ITensor<float> delta, ITensor<float> weightsT, ITensor<float> deltaOut) {
-		GpuTensor<float> gValues = (GpuTensor<float>)values;
+	public void Delta(ITensor<float> delta, ITensor<float> weights, ITensor<float> deltaOut) {
 		GpuTensor<float> gDelta = (GpuTensor<float>)delta;
-		GpuTensor<float> gWeightsT = (GpuTensor<float>)weightsT;
+		GpuTensor<float> gWeights = (GpuTensor<float>)weights;
 		GpuTensor<float> gDeltaOut = (GpuTensor<float>)deltaOut;
 
-		int outputSize = deltaOut.Shape[0];
-		int deltaSize = delta.Shape[0];
+		int inputSize = weights.Shape[1];
+		int outputSize = weights.Shape[0];
 
-		_networkKernels.Backward(
+		_matrixKernels.Delta(
 			outputSize,
-			gValues.View,
 			gDelta.View,
-			gWeightsT.View,
+			gWeights.View,
 			gDeltaOut.View,
-			deltaSize
+			inputSize,
+			outputSize
 		);
 	}
 
-	public void BackwardOutput(ITensor<float> activations, ITensor<float> expectedValues, ITensor<float> deltaOut) {
-		GpuTensor<float> gActivations = (GpuTensor<float>)activations;
-		GpuTensor<float> gExpectedValues = (GpuTensor<float>)expectedValues;
-		GpuTensor<float> gDeltaOut = (GpuTensor<float>)deltaOut;
-
-		int outputSize = deltaOut.Shape[0];
-
-		_arithmeticKernels.Subtraction(
-			outputSize,
-			gActivations.View,
-			gExpectedValues.View,
-			gDeltaOut.View
-		);
-	}
-
-	public void BackPropagation(ITensor<float> delta, ITensor<float> activations, ITensor<float> weightDelta, ITensor<float> biasDelta) {
+	public void BackPropagation(
+		ITensor<float> delta, ITensor<float> activations, ITensor<float> weightDelta, ITensor<float> biasDelta
+	) {
 		GpuTensor<float> gDelta = (GpuTensor<float>)delta;
 		GpuTensor<float> gActivations = (GpuTensor<float>)activations;
 		GpuTensor<float> gWeightsDelta = (GpuTensor<float>)weightDelta;
@@ -235,7 +175,7 @@ public class GpuBackend : IBackend {
 		int columns = weightDelta.Shape[1];
 
 		int outputSize = weightDelta.Length;
-		_networkKernels.WeightGradient(
+		_matrixKernels.WeightGradient(
 			outputSize,
 			gDelta.View,
 			gActivations.View,
@@ -243,50 +183,247 @@ public class GpuBackend : IBackend {
 			columns);
 
 		outputSize = biasDelta.Length;
-		_networkKernels.BiasGradient(
+		_matrixKernels.BiasGradient(
 			outputSize,
 			gDelta.View,
 			gBiasDelta.View);
 	}
 
-	public void Adjust(ITensor<float> weightDelta, ITensor<float> biasDelta, float scale, ITensor<float> weights, ITensor<float> weightsT, ITensor<float> bias) {
+	/* IElementwiseBackend */
+
+	public void Adjust(
+		ITensor<float> weightDelta, ITensor<float> biasDelta, float scale, ITensor<float> weights, ITensor<float> bias
+	) {
+		GpuTensor<float> gWeights = (GpuTensor<float>)weights;
+		GpuTensor<float> gBias = (GpuTensor<float>)bias;
 		GpuTensor<float> gWeightDelta = (GpuTensor<float>)weightDelta;
 		GpuTensor<float> gBiasDelta = (GpuTensor<float>)biasDelta;
 
-		GpuTensor<float> gWeights = (GpuTensor<float>)weights;
-		GpuTensor<float> gWeightsT = (GpuTensor<float>)weightsT;
-		GpuTensor<float> gBias = (GpuTensor<float>)bias;
-
 		int outputSize = gWeights.Length;
-		_arithmeticKernels.ScalarSubtraction(
+		_elementwiseKernels.AdjustParameter(
 			outputSize,
 			gWeights.View,
 			gWeightDelta.View,
-			scale,
-			gWeights.View
-		);
-
-		int rows = gWeights.Shape[0];
-		int cols = gWeights.Shape[1];
-
-		_matrixKernels.Transpose(
-			outputSize,
-			rows, cols,
-			gWeights.View,
-			gWeightsT.View
+			scale
 		);
 
 		outputSize = gBias.Length;
-		_arithmeticKernels.ScalarSubtraction(
+		_elementwiseKernels.AdjustParameter(
 			outputSize,
 			gBias.View,
 			gBiasDelta.View,
-			scale,
-			gBias.View
+			scale
 		);
 	}
 
-	public void Synchronize() {
+	public void Dropout(ITensor<float> input, ITensor<float> mask, ITensor<float> output) {
+		GpuTensor<float> gInput = (GpuTensor<float>)input;
+		GpuTensor<float> gMask = (GpuTensor<float>)mask;
+		GpuTensor<float> gOutput = (GpuTensor<float>)output;
+
+		int length = gInput.Length;
+
+		_elementwiseKernels.Dropout(
+			length,
+			gInput.View,
+			gMask.View,
+			gOutput.View
+		);
+	}
+	
+	/* IRandomBackend */
+	
+	public void GenerateDropoutMask(Random random, float dropoutChance, ITensor<float> maskOut) {
+		GpuTensor<float> gMaskOut = (GpuTensor<float>)maskOut;
+
+		float inverted = 1 / (1 - dropoutChance);
+		int length = maskOut.Length;
+		
+		float[] values = new float[length];
+		for (int i = 0; i < length; i++) {
+			values[i] = random.NextSingle() > dropoutChance
+				? inverted
+				: 0f;
+		}
+		
+		gMaskOut.Buffer.CopyFromCPU(values);
+	}
+
+	/* IActivationBackend */
+
+	public void ReLu_Forward(ITensor<float> input, ITensor<float> output) {
+		GpuTensor<float> gInput = (GpuTensor<float>)input;
+		GpuTensor<float> gOutput = (GpuTensor<float>)output;
+
+		int outputSize = output.Shape[0];
+
+		_activationKernels.ReLuForward(
+			outputSize,
+			gInput.View,
+			gOutput.View
+		);
+	}
+
+	public void ReLu_Backward(ITensor<float> input, ITensor<float> output) {
+		GpuTensor<float> gInput = (GpuTensor<float>)input;
+		GpuTensor<float> gOutput = (GpuTensor<float>)output;
+
+		int outputSize = output.Shape[0];
+
+		_activationKernels.ReLuBackward(
+			outputSize,
+			gInput.View,
+			gOutput.View
+		);
+	}
+
+	public void LeakyReLu_Forward(ITensor<float> input, float a, ITensor<float> output) {
+		GpuTensor<float> gInput = (GpuTensor<float>)input;
+		GpuTensor<float> gOutput = (GpuTensor<float>)output;
+
+		int outputSize = output.Shape[0];
+
+		_activationKernels.LeakyReLuForward(
+			outputSize,
+			gInput.View,
+			a,
+			gOutput.View
+		);
+	}
+
+	public void LeakyReLu_Backward(ITensor<float> input, float a, ITensor<float> output) {
+		GpuTensor<float> gInput = (GpuTensor<float>)input;
+		GpuTensor<float> gOutput = (GpuTensor<float>)output;
+
+		int outputSize = output.Shape[0];
+
+		_activationKernels.LeakyReLuBackward(
+			outputSize,
+			gInput.View,
+			a,
+			gOutput.View
+		);
+	}
+
+	public void Sigmoid_Forward(ITensor<float> input, ITensor<float> output) {
+		GpuTensor<float> gInput = (GpuTensor<float>)input;
+		GpuTensor<float> gOutput = (GpuTensor<float>)output;
+
+		int outputSize = output.Shape[0];
+
+		_activationKernels.SigmoidForward(
+			outputSize,
+			gInput.View,
+			gOutput.View
+		);
+	}
+
+	public void Sigmoid_Backward(ITensor<float> input, ITensor<float> output) {
+		GpuTensor<float> gInput = (GpuTensor<float>)input;
+		GpuTensor<float> gOutput = (GpuTensor<float>)output;
+
+		int outputSize = output.Shape[0];
+
+		_activationKernels.SigmoidBackward(
+			outputSize,
+			gInput.View,
+			gOutput.View
+		);
+	}
+
+	public void Softmax_Forward(ITensor<float> input, ITensor<float> output, ISingleValue<int> predictionOut) {
+		GpuTensor<float> gInput = (GpuTensor<float>)input;
+		GpuTensor<float> gOutput = (GpuTensor<float>)output;
+		GpuValue<int> gPredictionOut = (GpuValue<int>)predictionOut;
+
+		int outputSize = output.Shape[0];
+
+		// max, so we avoid large values, as well as the prediction the network made
+		GpuValue<float> value = (GpuValue<float>)CreateValue(0f);
+		_reductionKernels.MaxIndex(gInput, value, gPredictionOut);
+
+		// e^(z[i] - max) for all i, where i = row
+		_activationKernels.SoftmaxExp(outputSize, gInput.View, value.View, gOutput.View);
+
+		// Σ e^z[i] for all i
+		_reductionKernels.Sum(gOutput, value);
+
+		// e^z[i] / sum, aka the soft max
+		_activationKernels.SoftmaxDivide(outputSize, gOutput.View, value.View);
+
+		// Synchronize because value will be disposed.
 		_accelerator.Synchronize();
+
+		value.Dispose();
+	}
+
+	public void Softmax_Backward(ITensor<float> input, ITensor<float> output) {
+		GpuTensor<float> gInput = (GpuTensor<float>)input;
+		GpuTensor<float> gOutput = (GpuTensor<float>)output;
+
+		int length = gInput.Shape[0];
+
+		_activationKernels.SoftMaxBackward(length, length, gInput.View, gOutput.View);
+	}
+
+	/* ILossBackend */
+
+	public void MSE_Calculate(
+		ITensor<float> activation, ISingleValue<int> label, float a, ISingleValue<float> lossOut
+	) {
+		GpuTensor<float> gActivation = (GpuTensor<float>)activation;
+		GpuValue<int> gLabel = (GpuValue<int>)label;
+		GpuValue<float> gLossOut = (GpuValue<float>)lossOut;
+
+		_lossKernels.MseCalculate(
+			1,
+			gActivation.View,
+			gLabel.View,
+			a,
+			gLossOut.View
+		);
+	}
+
+	public void MSE_Backward(ITensor<float> input, ITensor<float> expectedInput, float a, ITensor<float> output) {
+		GpuTensor<float> gInput = (GpuTensor<float>)input;
+		GpuTensor<float> gExpectedInput = (GpuTensor<float>)expectedInput;
+		GpuTensor<float> gOutput = (GpuTensor<float>)output;
+
+		int outputSize = output.Shape[0];
+
+		_lossKernels.MseBackward(
+			outputSize,
+			gInput.View,
+			gExpectedInput.View,
+			a,
+			gOutput.View
+		);
+	}
+
+	public void CrossEntropy_Calculate(
+		ITensor<float> activation, ISingleValue<int> label, ISingleValue<float> lossOut
+	) {
+		GpuTensor<float> gActivation = (GpuTensor<float>)activation;
+		GpuValue<int> gLabel = (GpuValue<int>)label;
+		GpuValue<float> gLossOut = (GpuValue<float>)lossOut;
+
+		_lossKernels.CrossEntropyCalculate(1, gActivation.View, gLabel.View, gLossOut.View);
+	}
+
+	public void CrossEntropy_Backward(
+		ITensor<float> activations, ITensor<float> expectedValues, ITensor<float> deltaOut
+	) {
+		GpuTensor<float> gActivations = (GpuTensor<float>)activations;
+		GpuTensor<float> gExpectedValues = (GpuTensor<float>)expectedValues;
+		GpuTensor<float> gDeltaOut = (GpuTensor<float>)deltaOut;
+
+		int outputSize = deltaOut.Shape[0];
+
+		_lossKernels.CrossEntropyBackward(
+			outputSize,
+			gActivations.View,
+			gExpectedValues.View,
+			gDeltaOut.View
+		);
 	}
 }

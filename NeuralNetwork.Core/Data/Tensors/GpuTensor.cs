@@ -32,16 +32,22 @@ public class GpuTensor<T> : BaseTensor<T> where T : unmanaged {
     /// Create a GPU tensor and initializes it with CPU data.
     /// </summary>
     public GpuTensor(Accelerator accelerator, T[] data, params int[] shape) : this(accelerator, shape) {
-        ArgumentNullException.ThrowIfNull(data);
+        try {
+            ArgumentNullException.ThrowIfNull(data);
 
-        if (data.Length != Length) {
-            throw new ArgumentException(
-                $"Data contains {data.Length} elements, but the specified shape requires {Length}.",
-                nameof(data)
-            );
+            if (data.Length != Length) {
+                throw new ArgumentException(
+                    $"Data contains {data.Length} elements, but the specified shape requires {Length}.",
+                    nameof(data)
+                );
+            }
+
+            Buffer.CopyFromCPU(data);
+        } catch {
+            Buffer.Dispose();
+            _disposed = true;
+            throw;
         }
-        
-        Buffer.CopyFromCPU(data);
     }
     
     /// <summary>
@@ -58,6 +64,7 @@ public class GpuTensor<T> : BaseTensor<T> where T : unmanaged {
     /// </summary>
     public override void Dispose() {
         if (_disposed) return;
+        GC.SuppressFinalize(this);
 
         Buffer.Dispose();
         _disposed = true;

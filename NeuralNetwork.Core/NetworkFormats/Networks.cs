@@ -1,10 +1,9 @@
 using NeuralNetwork.Core.Backend;
 using NeuralNetwork.Core.Data;
 using NeuralNetwork.Core.NetworkFormats.Layers;
+using NeuralNetwork.Core.NetworkFormats.Layers.State;
 
 namespace NeuralNetwork.Core.NetworkFormats;
-
-using NetworkValues = (float[][] weights, float[][] bias);
 
 /**
  * <param name="Accuracy">
@@ -26,86 +25,230 @@ public record NetworkInstance(Network Network, float Accuracy) {
 }
     
 public class Network : IDisposable{
-    private BaseLayer[] Layers { get; }
     public IBackend Backend { get; }
-        
-    public Network(int[] layers, IBackend backend, Random random) {
-        ArgumentNullException.ThrowIfNull(backend);
-        if (layers.Length == 0)
-            throw new ArgumentException("Network size must have at least one layer.", nameof(layers));
-        if (layers.Any(layer => layer == 0))
-            throw new ArgumentException("Layers cannot have length 0.", nameof(layers));
-        
-        Backend = backend;
-        LayerAmount = layers.Length;
-        LayerLength = layers.ToArray();
-            
-        Layers = new BaseLayer[LayerAmount];
-        for (int i = 0; i < LayerAmount; i++) {
-            int length = layers[i];
-            Layers[i] = i == LayerAmount - 1
-                ? new OutputLayer(length, backend, Layers[i - 1], random)
-                : i == 0
-                    ? new InputLayer(length, backend)
-                    : new HiddenLayer(length, backend, Layers[i - 1], random);
-        }
-    }
-    public Network(int[] layers, IBackend backend, float[][] weights, float[][] bias) {
-        Backend = backend;
-        LayerAmount = layers.Length;
-        LayerLength = layers.ToArray();
-            
-        Layers = new BaseLayer[LayerAmount];
-        for (int i = 0; i < LayerAmount; i++) {
-            int length = layers[i];
-            Layers[i] = i == LayerAmount - 1
-                ? new OutputLayer(length, backend, Layers[i - 1], weights[i - 1], bias[i - 1])
-                : i == 0
-                    ? new InputLayer(length, backend)
-                    : new HiddenLayer(length, backend, Layers[i - 1], weights[i - 1], bias[i - 1]);
-        }
-    }
-        
-    public BaseLayer this[int index] => Layers[index];
-
-
+    public ILoss LossFunction { get; }
+    private bool _disposed;
+    
+    private readonly BaseLayer[] _layers;
+    public IReadOnlyList<BaseLayer> Layers { get; }
     public int LayerAmount { get; }
-    public int[] LayerLength { get; }
+    public IReadOnlyList<int> LayerLength { get; }
 
-    public DataGuess<float> QuickCalculate(DataSample<float> input) {
-        VirtualNetwork network = new VirtualNetwork(this);
+    public Network(IBackend backend, ILoss lossFunction, Random random, params BaseLayer[] layers) 
+        : this(backend, lossFunction, layers, random, true) { }
+
+    private Network(IBackend backend, ILoss lossFunction, BaseLayer[] layers, Random random, bool initializeLayers) {
+        ArgumentNullException.ThrowIfNull(backend);
+        ArgumentNullException.ThrowIfNull(lossFunction);
+        ArgumentNullException.ThrowIfNull(layers);
+        ValidateLayerDefinitions(layers, initializeLayers);
         
-        network.LoadBuffer(new DataBatch<float>(input));
-        network.CompleteForwardPass(this);
+        if (initializeLayers && random is null)
+            throw new ArgumentNullException(nameof(random));
         
-        DataGuess<float> result = network.RawGuess(0);
-        network.Dispose();
-        return result;
-    }
-        
-    public NetworkValues GetData() {
-        float[][] weights = new float[LayerAmount - 1][];
-        float[][] bias = new float[LayerAmount - 1][];
-            
-        for (int i = 1; i < LayerAmount; i++) {
-            weights[i - 1] = new float[LayerLength[i] * LayerLength[i - 1]];
-            Backend.Read(((HiddenLayer)this[i]).Weights).CopyTo(weights[i - 1]);
+        Backend = backend;
+        LossFunction = lossFunction;
+        _layers = (BaseLayer[])layers.Clone();
+        Layers = Array.AsReadOnly(_layers);
+        LayerAmount = _layers.Length;
+
+        int[] layerLengths = new int[LayerAmount];
+        LayerLength = Array.AsReadOnly(layerLengths);
+
+        if (initializeLayers) {
+            int initializedCount = 0;
+            try {
+                _layers[0].Initialize(backend);
+                initializedCount = 1;
+                layerLengths[0] = _layers[0].NeuronCount;
+
+                for (int i = 1; i < LayerAmount; i++) {
+                    BaseLayer layer = _layers[i];
+                    if (layer is not DropoutLayer && layer.NeuronCount <= 0)
+                        throw new ArgumentException($"Layer {i} must have a positive neuron count.", nameof(layers));
+
+                    initializedCount = i + 1;
+                    layer.Initialize(layerLengths[i - 1], backend, random);
+                    if (layer.NeuronCount <= 0)
+                        throw new ArgumentException($"Layer {i} resolved to an invalid neuron count.", nameof(layers));
+
+                    ValidateInitializedLayer(layer, layerLengths[i - 1], i);
+                    layerLengths[i] = layer.NeuronCount;
+                }
                 
-            bias[i - 1] = new float[LayerLength[i]];
-            Backend.Read(((HiddenLayer)this[i]).Bias).CopyTo(bias[i - 1]);
-        }
+                LossFunction.Initialize(backend);
+            } catch {
+                for (int i = 0; i < initializedCount; i++) {
+                    try {
+                        _layers[i].Dispose();
+                    } catch { /* Ignored */ }
+                }
+                throw;
+            }
+        } else {
+            for (int i = 0; i < LayerAmount; i++) {
+                BaseLayer layer = layers[i];
+                if (layer.NeuronCount <= 0)
+                    throw new InvalidDataException($"Serialized layer {i} has an invalid neuron count.");
+                
+                layerLengths[i] = layer.NeuronCount;
+                if (i > 0) ValidateInitializedLayer(layer, layerLengths[i - 1], i);
+            }
             
-        return (weights, bias);
-    }
-    public Network Copy() {
-        NetworkValues variables = GetData();
-        return new Network(LayerLength, Backend, variables.weights, variables.bias);
+            LossFunction.Initialize(backend);
+        }
     }
 
-    public void Dispose() {
+    internal static Network FromLoadedLayers(IBackend backend, ILoss lossFunction, BaseLayer[] layers) {
+        return new Network(backend, lossFunction, layers, null, false);
+    }
+
+    private static void ValidateLayerDefinitions(BaseLayer[] layers, bool loading) {
+        // Layer Count validation
+        if (layers.Length < 2)
+            throw new ArgumentException("A network must contain at least 2 layers.", nameof(layers));
+        // Layer null validation
+        if (layers.Any(layer => layer is null))
+            throw new ArgumentException("Layers cannot be null.", nameof(layers));
+        
+        // Input layer checks
+        if (layers[0] is not InputLayer)
+            throw new ArgumentException("The first layer of a network must be an InputLayer.", nameof(layers));
+        if (layers.Skip(1).Any(layer => layer is InputLayer))
+            throw new ArgumentException("An input layer must only be at index 0 of a network.", nameof(layers));
+
+        // Ruleset check (or interface)
+        if (layers.Any(layer => layer is not ILayer))
+            throw new ArgumentException("Every layer must implement from ILayer.", nameof(layers));
+
+        // Instance check
+        if (layers.Distinct(ReferenceEqualityComparer.Instance).Count() != layers.Length)
+            throw new ArgumentException("A layer instance cannot appear more than once inside the same network.",
+                nameof(layers));
+
+        // Input size check
+        if (layers[0].NeuronCount <= 0) {
+            throw loading
+                ? new InvalidDataException("Serialized input layer has an invalid neuron count.")
+                : new ArgumentException("Input layer size must be greater than zero.", nameof(layers));
+        }
+    }
+
+    private static void ValidateInitializedLayer(BaseLayer layer, int inputSize, int index) {
+        switch (layer) {
+            case DropoutLayer:
+                if (layer.NeuronCount != inputSize)
+                    throw new InvalidDataException(
+                        $"Dropout layer {index} has {layer.NeuronCount} neurons, expected {inputSize}");
+                break;
+            case FullyConnectedLayer fullyConnectedLayer:
+                if (fullyConnectedLayer.Weights is null ||
+                    fullyConnectedLayer.Bias is null ||
+                    fullyConnectedLayer.Weights.Rank != 2 ||
+                    fullyConnectedLayer.Weights.Shape[0] != layer.NeuronCount ||
+                    fullyConnectedLayer.Weights.Shape[1] != inputSize ||
+                    fullyConnectedLayer.Bias.Length != layer.NeuronCount)
+                    throw new InvalidDataException($"Fully connected layer {index} has inconsistent parameter shapes.");
+                break;
+        }
+    }
+    
+    public ILayer this[int index] => _layers[index] as ILayer
+        ?? throw new InvalidOperationException($"Layer {index} does not implement ILayer.");
+    
+    public DataGuess<float> QuickCalculate(DataSample<float> input) {
+        ThrowIfDisposed();
+        
+        using VirtualNetwork virtualNetwork = new VirtualNetwork(this);
+        virtualNetwork.LoadBuffer(new DataBatch<float>(input));
+        virtualNetwork.CompleteForwardPass(this, PassMode.Inference);
+        return virtualNetwork.RawGuess(0);
+    }
+
+    public void Save(BinaryWriter writer) {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(writer);
+        
         Backend.Synchronize();
-        foreach (BaseLayer layer in Layers) {
+        writer.Write(LayerAmount);
+        foreach (BaseLayer layer in _layers) {
+            layer.Save(writer);
+        }
+    }
+
+    public static Network Load(BinaryReader reader, IBackend backend, ILoss lossFunction) {
+        ArgumentNullException.ThrowIfNull(reader);
+        ArgumentNullException.ThrowIfNull(backend);
+        ArgumentNullException.ThrowIfNull(lossFunction);
+
+        int layerAmount = reader.ReadInt32();
+        if (layerAmount < 2)
+            throw new InvalidDataException($"Invalid layer count: {layerAmount}.");
+        
+        BaseLayer[] layers = new BaseLayer[layerAmount];
+        int loaded = 0;
+
+        try {
+            for (; loaded < layers.Length; loaded++) {
+                layers[loaded] = BaseLayer.Load(reader, backend);
+            }
+
+            return FromLoadedLayers(backend, lossFunction, layers);
+        } catch {
+            for (int i = 0; i < loaded; i++) {
+                try {
+                    layers[i].Dispose();
+                } catch { /* ignored */ }
+            }
+            throw;
+        }
+    }
+    
+    /**
+     * Copies this network into a new, separate instance with independent layers.
+     */
+    public Network Copy() {
+        ThrowIfDisposed();
+        
+        return new Network(
+            Backend,
+            LossFunction,
+            _layers.Select(layer => layer.Copy()).ToArray(),
+            null,
+            false
+        );
+    }
+    
+    /**
+     * Mutates this network instance.
+     */
+    public void Mutate(Random random, float mutationStrength) {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(random);
+        if (!float.IsFinite(mutationStrength) || mutationStrength < 0) {
+            throw new ArgumentOutOfRangeException(nameof(mutationStrength));
+        }
+        if (mutationStrength == 0f) return;
+        
+        foreach (BaseLayer layer in _layers) {
+            if (layer is not ITrainableLayer trainableLayer) continue;
+            trainableLayer.Mutate(random, mutationStrength);
+        }
+    }
+
+    private void ThrowIfDisposed() {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+    }
+    
+    public void Dispose() {
+        if (_disposed) return;
+        _disposed = true;
+        
+        Backend.Synchronize();
+        foreach (BaseLayer layer in _layers) {
             layer.Dispose();
         }
+        
+        GC.SuppressFinalize(this);
     }
 }

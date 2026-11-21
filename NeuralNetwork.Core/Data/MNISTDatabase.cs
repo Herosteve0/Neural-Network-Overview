@@ -1,83 +1,122 @@
+using NeuralNetwork.Core.Others;
+
 namespace NeuralNetwork.Core.Data;
 
-public class MnistDatabase {
-    private static int ReadBigEndianInt(BinaryReader br) {
-        byte[] bytes = br.ReadBytes(4);
-        if (BitConverter.IsLittleEndian) Array.Reverse(bytes);
-        return BitConverter.ToInt32(bytes, 0);
-    }
+using Dataset = (string images, string labels);
 
-    private const string Filepath = "../../../../MNIST/";
-        
+public enum MnistSets {
+    Training,
+    Testing
+}
+
+public class MnistDatabase : IDisposable {
+    private static readonly string Filepath = FileManager.WorkspacePath + "MNIST/";
+    private static readonly string TrainingImagePath = Filepath + "train-images.idx3-ubyte";
+    private static readonly string TrainingLabelsPath = Filepath + "train-labels.idx1-ubyte";
+    private static readonly string TestingImagePath = Filepath + "t10k-images.idx3-ubyte";
+    private static readonly string TestingLabelsPath = Filepath + "t10k-labels.idx1-ubyte";
+
+    private static Dataset TranslateSet(MnistSets set) {
+        return set switch {
+            MnistSets.Training => (TrainingImagePath, TrainingLabelsPath),
+            MnistSets.Testing => (TestingImagePath, TestingLabelsPath),
+            _ => throw new ArgumentOutOfRangeException(nameof(set))
+        };
+    }
+    
     public static DataSample<float>[] LoadAllTrainingData() {
-        MnistDatabase database = new MnistDatabase(Filepath + "train-images.idx3-ubyte", Filepath + "train-labels.idx1-ubyte");
+        MnistDatabase database = new MnistDatabase(MnistSets.Training);
         return database.ReadBatch(database._size);
     }
 
     public static DataSample<float>[] LoadAllTestingData() {
-        MnistDatabase database = new MnistDatabase(Filepath + "t10k-images.idx3-ubyte", Filepath + "t10k-labels.idx1-ubyte");
+        MnistDatabase database = new MnistDatabase(MnistSets.Testing);
         return database.ReadBatch(database._size);
     }
 
-
     private readonly BinaryReader _brImages;
     private readonly BinaryReader _brLabels;
-
     private readonly int _size;
-    private int _index;
     private readonly int _rows;
     private readonly int _cols;
+    private int _index;
+    private bool _disposed;
 
-    private MnistDatabase(string imagePath, string labelPath) {
-        _brImages = new BinaryReader(File.OpenRead(imagePath));
-        _brLabels = new BinaryReader(File.OpenRead(labelPath));
+    private MnistDatabase(MnistSets set) {
+        BinaryReader images = null;
+        BinaryReader labels = null;
 
-        int magicImage = ReadBigEndianInt(_brImages); // 2051
-        if (magicImage != 2051)
-            throw new Exception("MNIST Database image magic number is incorrect!");
-        int magicLabels = ReadBigEndianInt(_brLabels); // 2049
-        if (magicLabels != 2049)
-            throw new Exception("MNIST Database label magic number is incorrect!");
+        try {
+            (string imagePath, string labelPath) = TranslateSet(set);
+            images = new BinaryReader(File.OpenRead(imagePath));
+            labels = new BinaryReader(File.OpenRead(labelPath));
 
-        int sizeImage = ReadBigEndianInt(_brImages);
-        int sizeLabels = ReadBigEndianInt(_brLabels);
+            int magicImage = ReadBigEndianInt(images); // 2051
+            if (magicImage != 2051)
+                throw new InvalidDataException($"MNIST image magic number is invalid: {magicImage}.");
+            int magicLabels = ReadBigEndianInt(labels); // 2049
+            if (magicLabels != 2049)
+                throw new InvalidDataException($"MNIST label magic number is invalid: {magicLabels}.");
 
-        if (sizeImage != sizeLabels) {
-            throw new Exception("MNIST Database image and label count not matching! Files might be corrupted.");
+            int sizeImage = ReadBigEndianInt(images);
+            int sizeLabels = ReadBigEndianInt(labels);
+            if (sizeImage <= 0 || sizeImage != sizeLabels)
+                throw new InvalidDataException("MNIST image and label counts are invalid or do not match.");
+            
+            int rows = ReadBigEndianInt(images);
+            int cols = ReadBigEndianInt(images);
+            if (rows <= 0 || cols <= 0)
+                throw new InvalidDataException($"Invalid MNIST image dimensions: {rows}x{cols}.");
+            
+            _size = sizeImage;
+            _rows = rows;
+            _cols = cols;
+            _brImages = images;
+            _brLabels = labels;
+        } catch {
+            labels?.Dispose();
+            images?.Dispose();
+            throw;
         }
-
-        _size = sizeImage;
-
-        _rows = ReadBigEndianInt(_brImages);
-        _cols = ReadBigEndianInt(_brImages);
     }
-
-    private void CloseLoad() {
-        _brImages.Dispose();
-        _brLabels.Dispose();
+    
+    private static int ReadBigEndianInt(BinaryReader br) {
+        byte[] bytes = br.ReadBytes(4);
+        if (bytes.Length != sizeof(int))
+            throw new EndOfStreamException("Unexpected end of MNIST IDX header.");
+        if (BitConverter.IsLittleEndian) Array.Reverse(bytes);
+        return BitConverter.ToInt32(bytes, 0);
     }
 
     private DataSample<float>[] ReadBatch(int batchSize) {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentOutOfRangeException.ThrowIfNegative(batchSize);
+
         int loops = Math.Min(batchSize, _size - _index);
-        if (loops <= 0) return null;
+        if (loops <= 0) return [];
 
-        DataSample<float>[] r = new DataSample<float>[loops];
-
+        int pixelsPerImage = checked(_rows * _cols);
+        DataSample<float>[] result = new DataSample<float>[loops];
         for (int i = 0; i < loops; i++) {
-            float[] values = new float[_rows * _cols];
+            float[] values = new float[pixelsPerImage];
             for (int j = 0; j < values.Length; j++) {
                 values[j] = _brImages.ReadByte() / 255f;
             }
 
             int label = _brLabels.ReadByte();
-
-            r[i] = new DataSample<float>(values, label);
+            if (label > 9) throw new InvalidDataException($"Invalid MNIST label: {label}.");
+            result[i] = new DataSample<float>(values, label);
         }
 
         _index += loops;
+        return result;
+    }
 
-        if (_index >= _size) CloseLoad();
-
-        return r;
+    public void Dispose() {
+        if (_disposed) return;
+        _disposed = true;
+        GC.SuppressFinalize(this);
+        _brImages.Dispose();
+        _brLabels.Dispose();
     }
 }

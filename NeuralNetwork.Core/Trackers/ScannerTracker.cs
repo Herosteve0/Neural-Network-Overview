@@ -29,12 +29,15 @@ public abstract class ScannerTracker(int breathTicks) {
 	public TimeSpan TimeSinceLastProgress => DateTime.Now - _progressTime;
 
 	public virtual void Initialize(int dataSize, int iterations) {
-		Iterations = iterations;
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(dataSize);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(iterations);
+
+        Iterations = iterations;
 		DataSize = dataSize;
-		TotalExamples = dataSize * iterations;
+		TotalExamples = checked(dataSize * iterations);
 	}
 
-	public virtual void Reset() {
+	protected virtual void Reset() {
 		CurrentIteration = 0;
 		Progress = 0;
 		_breathCooldown = 0;
@@ -42,6 +45,12 @@ public abstract class ScannerTracker(int breathTicks) {
 	
 	public void Begin() {
 		Reset();
+		
+		_cancellationTokenSource?.Cancel();
+		_cancellationTokenSource?.Dispose();
+		_cancellationTokenSource = null;
+		
+		_isStepping = false;
 		_startTime = DateTime.Now;
 		_progressTime = DateTime.Now;
 		
@@ -69,16 +78,14 @@ public abstract class ScannerTracker(int breathTicks) {
 		_progressTime = DateTime.Now;
 	}
 	
-	public TimeSpan UpdateProgress() {
-		TimeSpan span = TimeSinceLastProgress;
+	public void UpdateProgress() {
 		BreathFunction();
-		return span;
 	}
 
 
 	public void TogglePause() {
 		if (IsRunning) Pause();
-		else Resume();
+		else if (IsRunning) Resume();
 	}
 
 	private void Pause() {
@@ -91,14 +98,33 @@ public abstract class ScannerTracker(int breathTicks) {
 		if (!IsPaused) return;
 		_state = ScannerState.Running;
 		_isStepping = step;
-		_cancellationTokenSource.Cancel();
+		
+		CancellationTokenSource source = _cancellationTokenSource;
+		_cancellationTokenSource = null;
+		source?.Cancel();
+		source?.Dispose();
 	}
 
 	public async Task AwaitPause() {
+		CancellationTokenSource source = _cancellationTokenSource
+			?? throw new InvalidOperationException("Paused tracker has no cancellation source.");
+
 		try {
-			await Task.Delay(-1, _cancellationTokenSource.Token);
-		} catch (Exception) {
-			if (_isStepping) return;
+			await Task.Delay(Timeout.Infinite, source.Token);
+		} catch (OperationCanceledException) {
+			// Ignored
+		} finally {
+			if (ReferenceEquals(source, _cancellationTokenSource)) {
+				_cancellationTokenSource = null;
+				source?.Dispose();
+			}
+		}
+	}
+
+	public void CompleteStep() {
+		if (!_isStepping) return;
+		_isStepping = false;
+		if (_state == ScannerState.Running) {
 			Pause();
 		}
 	}
@@ -108,9 +134,12 @@ public abstract class ScannerTracker(int breathTicks) {
 		Resume(true);
 	}
 	
-	public TimeSpan Finish() {
+	public void Finish() {
 		_state =  ScannerState.Idle;
-		Resume();
-		return TimeSinceStart;
+		_isStepping = false;
+		CancellationTokenSource source = _cancellationTokenSource;
+		_cancellationTokenSource = null;
+		source?.Cancel();
+		source?.Dispose();
 	}
 }
