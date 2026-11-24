@@ -3,10 +3,10 @@ using NeuralNetwork.Core.Data.Tensors;
 
 namespace NeuralNetwork.Core.NetworkFormats.Layers.State;
 
-public class InputLayerState : ILayerState {
+public class InputForwardState : ILayerForwardState {
     public ITensor<float> Output { get; private set; }
 
-    public InputLayerState(IBackend backend, int outputSize) {
+    public InputForwardState(IBackend backend, int outputSize) {
         try {
             Output = backend.CreateTensor(0f, outputSize);
         } catch {

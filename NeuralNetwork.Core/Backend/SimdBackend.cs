@@ -75,8 +75,8 @@ public class SimdBackend : CpuBackend {
 	}
 
 	protected override void CpuDelta(CpuTensor<float> delta, CpuTensor<float> weights, CpuTensor<float> deltaOut) {
-		int rows = weights.Shape[1];
-		int columns = weights.Shape[0];
+		int rows = weights.Shape[0];
+		int columns = weights.Shape[1];
 
 		ReadOnlySpan<float> deltaSpan = delta.Data;
 		ReadOnlySpan<float> weightsSpan = weights.Data;
@@ -84,28 +84,28 @@ public class SimdBackend : CpuBackend {
 		Span<float> deltaOutSpan = deltaOut.Data;
 
 		Span<float> buffer = new float[_simdWidth];
-		
-		for (int row = 0; row < rows; row++) {
-			Vector<float> vSum = Vector<float>.Zero;
 
-			int col = 0;
-			for (; col <= columns - _simdWidth; col += _simdWidth) {
+		for (int col = 0; col < columns; col++) {
+			Vector<float> vSum = Vector<float>.Zero;
+			
+			int row = 0;
+			for (; row < rows - _simdWidth; row += _simdWidth) {
 				for (int i = 0; i < _simdWidth; i++) {
-					buffer[i] = weightsSpan[(col + i) * rows + row];
+					buffer[i] = weightsSpan[(row + i) * columns + col];
 				}
 				
 				Vector<float> vWeights = new(buffer);
-				Vector<float> vDelta = new(deltaSpan.Slice(col, _simdWidth));
+				Vector<float> vDelta = new(deltaSpan.Slice(row, _simdWidth));
 				vSum += vWeights * vDelta;
 			}
 
 			float sum = Vector.Sum(vSum);
-
-			for (; col < columns; col++) {
-				sum += weightsSpan[col * rows + row] * deltaSpan[col];
+			
+			for (; row < rows; row++) {
+				sum += weightsSpan[row * columns + col] * deltaSpan[row];
 			}
-
-			deltaOutSpan[row] = sum;
+			
+			deltaOutSpan[col] = sum;
 		}
 	}
 

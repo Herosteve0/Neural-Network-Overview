@@ -5,18 +5,14 @@ using NeuralNetwork.Core.NetworkFormats.Layers.State;
 
 namespace NeuralNetwork.Core.NetworkFormats.Layers;
 
-public class FullyConnectedLayer(int size, IActivation activation) : BaseLayer(size), ILayer, ITrainableLayer {
-    private static float WeightScaler(int previousLength) {
-        return (float)Math.Sqrt(6f / previousLength);
-    }
-    
+public class FullyConnectedLayer(int size, ActivationFunction activation) : BaseLayer(size), ILayer, ITrainableLayer {
     private IMatrixBackend MatrixBackend => Backend as IMatrixBackend 
         ?? throw new NotSupportedException($"The selected backend does not implement matrix operations.");
     private IElementwiseBackend ElementwiseBackend => Backend as IElementwiseBackend
         ?? throw new NotSupportedException("The selected backend does not implement parameter adjustments.");
 
-    private readonly IActivation _activation = activation 
-                                               ?? throw new ArgumentNullException(nameof(activation));
+    private readonly ActivationFunction _activation = activation 
+                                                      ?? throw new ArgumentNullException(nameof(activation));
 
     private ITensor<float> _weights;
     private ITensor<float> _bias;
@@ -30,7 +26,7 @@ public class FullyConnectedLayer(int size, IActivation activation) : BaseLayer(s
         _activation.Initialize(backend);
 
         try {
-            float value = WeightScaler(inputSize);
+            float value = _activation.InitScalar(inputSize, NeuronCount);
             float[] data = new float[checked(NeuronCount * inputSize)];
             for (int i = 0; i < data.Length; i++) {
                 data[i] = value * (2 * random.NextSingle() - 1);
@@ -68,46 +64,50 @@ public class FullyConnectedLayer(int size, IActivation activation) : BaseLayer(s
         }
     }
 
-    public ILayerState CreatePassState() {
-        return new FullyConnectedLayerState(Backend, _weights.Shape[1], NeuronCount);
+    public ILayerForwardState CreateForwardState() {
+        return new FullyConnectedForwardState(Backend, NeuronCount);
+    }
+    public ILayerBackwardState CreateBackwardState() {
+        return new FullyConnectedBackwardState(Backend, _weights.Shape[1], NeuronCount);
     }
 
     public void Forward(
-        ITensor<float> input, ILayerState passState, ISingleValue<int> predictionOut, PassMode mode
+        ITensor<float> input, ILayerForwardState passState, ISingleValue<int> predictionOut, PassMode mode
     ) {
         ThrowIfDisposed();
-        FullyConnectedLayerState state = TranslateState<FullyConnectedLayerState>(passState);
+        FullyConnectedForwardState state = TranslateState<FullyConnectedForwardState>(passState);
         
         MatrixBackend.Linear(input, _weights, _bias, state.Values);
         _activation.Forward(state.Values, state.Output, predictionOut);
     }
 
-    public void Delta(ILayerStateDelta backwardState, ITensor<float> deltaOut) {
+    public void Delta(ILayerForwardState forwardState, ILayerBackwardState backwardState, ITensor<float> deltaOut) {
         ThrowIfDisposed();
+        
         MatrixBackend.Delta(backwardState.Delta, _weights, deltaOut);
     }
 
-    public void ActivationDelta(ILayerStateDelta passState) {
+    public void ActivationDelta(ILayerForwardState forwardState, ILayerBackwardState backwardState) {
         ThrowIfDisposed();
-        FullyConnectedLayerState state = TranslateState<FullyConnectedLayerState>(passState);
+        FullyConnectedForwardState forward = TranslateState<FullyConnectedForwardState>(forwardState);
         
-        _activation.Backward(state.Values, state.Delta);
+        _activation.Backward(forward.Values, backwardState.Delta);
     }
 
     public void BackPropagation(
-        ITensor<float> activations, ILayerStateDelta passState
+        ITensor<float> activations, ILayerBackwardState backwardState
     ) {
         ThrowIfDisposed();
-        FullyConnectedLayerState state = TranslateState<FullyConnectedLayerState>(passState);
+        FullyConnectedBackwardState backward = TranslateState<FullyConnectedBackwardState>(backwardState);
         
-        MatrixBackend.BackPropagation(state.Delta, activations, state.WeightsDelta, state.BiasDelta);
+        MatrixBackend.BackPropagation(backward.Delta, activations, backward.WeightsDelta, backward.BiasDelta);
     }
 
-    public void Adjust(ILayerState passState, float scale) {
+    public void Adjust(ILayerBackwardState backwardState, float scale) {
         ThrowIfDisposed();
-        FullyConnectedLayerState state = TranslateState<FullyConnectedLayerState>(passState);
+        FullyConnectedBackwardState backward = TranslateState<FullyConnectedBackwardState>(backwardState);
         
-        ElementwiseBackend.Adjust(state.WeightsDelta, state.BiasDelta, scale, _weights, _bias);
+        ElementwiseBackend.Adjust(backward.WeightsDelta, backward.BiasDelta, scale, _weights, _bias);
     }
     
     public void Mutate(Random random, float mutationStrength) {
@@ -188,7 +188,7 @@ public class FullyConnectedLayer(int size, IActivation activation) : BaseLayer(s
         if (neuronCount <= 0 || inputSize <= 0)
             throw new InvalidDataException($"Invalid fully connected layer shape ({neuronCount}, {inputSize}).");
         
-        IActivation activation = IActivation.Load(reader);
+        ActivationFunction activation = ActivationFunction.Load(reader);
         
         FullyConnectedLayer layer = new FullyConnectedLayer(neuronCount, activation);
         

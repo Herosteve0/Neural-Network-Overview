@@ -38,11 +38,11 @@ public interface IBackend {
 	/**
 	 * Sets the value to a given value.
 	 */
-	void SetSingle<T>(ISingleValue<T> a, T value) where T : unmanaged;
+	void Set<T>(ISingleValue<T> a, T value) where T : unmanaged;
 	/**
 	 * Converts the value to a cpu variable.
 	*/
-	T ReadSingle<T>(ISingleValue<T> a) where T : unmanaged;
+	T Read<T>(ISingleValue<T> a) where T : unmanaged;
 
 	/**
 	 * Adds a value to the first value.

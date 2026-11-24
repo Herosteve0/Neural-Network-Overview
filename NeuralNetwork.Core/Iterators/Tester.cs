@@ -1,8 +1,8 @@
 using NeuralNetwork.Core.Backend;
 using NeuralNetwork.Core.Data;
 using NeuralNetwork.Core.Data.SingleValues;
-using NeuralNetwork.Core.NetworkFormats;
-using NeuralNetwork.Core.NetworkFormats.Layers.State;
+using NeuralNetwork.Core.NetworkFormats.ExecutableNetworks;
+using NeuralNetwork.Core.NetworkFormats.Networks;
 using NeuralNetwork.Core.Others;
 using NeuralNetwork.Core.Trackers;
 
@@ -16,6 +16,7 @@ public class Tester(
     bool multiThread = false
 ) : NetworkScanner<TesterTracker>(batchSize, 1, 5000) {
     private int _iterationCorrect;
+    private bool _showMistakes;
 
     /**
      * <returns>
@@ -23,8 +24,10 @@ public class Tester(
      * </returns>
      */
     public async Task<float> Test(Network network, bool showMistakes = false) {
+        _showMistakes = showMistakes;
+        
         await IterateNetwork(network);
-
+        
         if (showMistakes) {
             Console.WriteLine("Creating images (takes a bit...)");
             DisplayManager.DrawImages(Tracker.GetMistakes());
@@ -45,40 +48,40 @@ public class Tester(
         using ISingleValue<int> correct = backend.CreateValue(0);
 
         if (multiThread) {
-            ExecuteMultiThread(network, testingData, correct);
+            ExecuteMultiThread(network, testingData, correct, _showMistakes);
         } else {
-            Execute(network, testingData, correct);
+            Execute(network, testingData, correct, _showMistakes);
         }
 
-        int correctValue = backend.ReadSingle(correct);
+        int correctValue = backend.Read(correct);
         _iterationCorrect += correctValue;
     }
 
-    private void Execute(Network network, DataBatch<float> dataBatch, ISingleValue<int> correct) {
+    private void Execute(Network network, DataBatch<float> dataBatch, ISingleValue<int> correct, bool countMistakes = false) {
         ExecuteSingle(
             dataBatch,
-            () => new LocalThread(network, BufferSize),
-            (local, data) => TestingCalculations(network, data, local.VirtualNetwork, local.Wrongs),
+            () => new LocalThread(network, BufferSize, countMistakes),
+            (local, data) => TestingCalculations(network, data, local.InferenceNetwork, local.Mistakes),
             (local) => {
-                local.VirtualNetwork.AdjustCorrect(correct);
-                Tracker.Update(local.Wrongs);
+                local.InferenceNetwork.AdjustCorrect(correct);
+                Tracker.Update(local.Mistakes);
                 local.Dispose();
             }
         );
     }
 
-    private void ExecuteMultiThread(Network network, DataBatch<float> dataBatch, ISingleValue<int> correct) {
+    private void ExecuteMultiThread(Network network, DataBatch<float> dataBatch, ISingleValue<int> correct, bool countMistakes = false) {
         int processors = Environment.ProcessorCount;
         
         ExecuteParallel(
             dataBatch,
             processors,
-            () => new LocalThread(network, BufferSize),
-            (local, buffer) => TestingCalculations(network, buffer, local.VirtualNetwork, local.Wrongs),
+            () => new LocalThread(network, BufferSize, countMistakes),
+            (local, buffer) => TestingCalculations(network, buffer, local.InferenceNetwork, local.Mistakes),
             (local, lockObj) => {
                 lock (lockObj) {
-                    local.VirtualNetwork.AdjustCorrect(correct);
-                    Tracker.Update(local.Wrongs);
+                    local.InferenceNetwork.AdjustCorrect(correct);
+                    Tracker.Update(local.Mistakes);
                 }
 
                 local.Dispose();
@@ -86,24 +89,26 @@ public class Tester(
         );
     }
 
-    private class LocalThread(Network network, int bufferSize) : IDisposable {
-        public readonly VirtualNetwork VirtualNetwork = new(network, bufferSize);
-        public readonly List<DataGuess<float>> Wrongs = [];
-        
-        public void Dispose() => VirtualNetwork.Dispose();
+    private class LocalThread(Network network, int bufferSize, bool countMistakes = false) : IDisposable {
+        public readonly InferenceNetwork InferenceNetwork = new(network, bufferSize);
+        public readonly List<DataGuess<float>> Mistakes = countMistakes ? [] : null;
+
+        public void Dispose() => InferenceNetwork.Dispose();
     }
 
-    private static void TestingCalculations(Network network, DataBatch<float> testingBatch, VirtualNetwork virtualNetwork,
-        List<DataGuess<float>> wrongs) {
-        virtualNetwork.LoadBuffer(testingBatch);
+    private static void TestingCalculations(Network network, DataBatch<float> testingBatch,
+        InferenceNetwork inferenceNetwork, List<DataGuess<float>> mistakes) {
+        inferenceNetwork.LoadBuffer(testingBatch);
 
-        virtualNetwork.ProcessFullBuffer(() => { virtualNetwork.CompleteForwardPass(network, PassMode.Inference); });
+        inferenceNetwork.ProcessFullBuffer(() => { inferenceNetwork.CompleteForwardPass(network); });
 
-        bool[] isCorrect = virtualNetwork.IsCorrect;
-
+        if (mistakes == null) return;
+        
+        bool[] isCorrect = inferenceNetwork.IsCorrect;
+        
         for (int i = 0; i < isCorrect.Length; i++) {
             if (!isCorrect[i]) {
-                wrongs.Add(virtualNetwork.RawGuess(i));
+                mistakes.Add(inferenceNetwork.RawGuess(i));
             }
         }
     }

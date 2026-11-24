@@ -1,8 +1,8 @@
 using NeuralNetwork.Core.Backend;
 using NeuralNetwork.Core.Data;
 using NeuralNetwork.Core.Data.SingleValues;
-using NeuralNetwork.Core.NetworkFormats;
-using NeuralNetwork.Core.NetworkFormats.Layers.State;
+using NeuralNetwork.Core.NetworkFormats.ExecutableNetworks;
+using NeuralNetwork.Core.NetworkFormats.Networks;
 using NeuralNetwork.Core.Trackers;
 
 namespace NeuralNetwork.Core.Iterators;
@@ -92,10 +92,10 @@ public class Trainer(
             Execute(network, trainingData, scale, loss, correct);
         }
 
-        float lossValue = backend.ReadSingle(loss);
+        float lossValue = backend.Read(loss);
         loss.Dispose();
         
-        int correctValue = backend.ReadSingle(correct);
+        int correctValue = backend.Read(correct);
         correct.Dispose();
 
         _correctGain += correctValue;
@@ -105,7 +105,7 @@ public class Trainer(
     private void Execute(Network network, DataBatch<float> dataBatch, float scale, ISingleValue<float> loss, ISingleValue<int> correct) {
         ExecuteSingle(
             dataBatch,
-            () => new VirtualNetwork(network, BufferSize),
+            () => new TrainableNetwork(network, BufferSize),
             (local, buffer) => TrainVirtualNetwork(network, local, buffer),
             (local) => {
                 local.IterateAdjust(network, scale);
@@ -121,7 +121,7 @@ public class Trainer(
         
         ExecuteParallel(dataBatch,
             processors,
-            () => new VirtualNetwork(network, BufferSize),
+            () => new TrainableNetwork(network, BufferSize),
             (local, buffer) => TrainVirtualNetwork(network, local, buffer),
             (local, lockObj) => {
                 lock (lockObj) {
@@ -134,12 +134,12 @@ public class Trainer(
         );
     }
 
-    private static void TrainVirtualNetwork(Network network, VirtualNetwork virtualNetwork, DataBatch<float> trainingBuffer) {
-        virtualNetwork.LoadBuffer(trainingBuffer);
+    private static void TrainVirtualNetwork(Network network, TrainableNetwork trainableNetwork, DataBatch<float> trainingBuffer) {
+        trainableNetwork.LoadBuffer(trainingBuffer);
         
-        virtualNetwork.ProcessFullBuffer(() => {
-                virtualNetwork.CompleteForwardPass(network, PassMode.Training);
-                virtualNetwork.IterateBackward(network);
+        trainableNetwork.ProcessFullBuffer(() => {
+                trainableNetwork.CompleteForwardPass(network);
+                trainableNetwork.IterateBackward(network);
             }
         );
     }

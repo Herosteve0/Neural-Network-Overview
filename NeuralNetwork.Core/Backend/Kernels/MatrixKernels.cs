@@ -32,14 +32,13 @@ public class MatrixKernels(Accelerator accelerator) {
 	}
 	
 	private static void DeltaKernel(
-		Index1D row, FloatView delta, FloatView weightsT, FloatView deltaOut, int inputSize, int outputSize
+		Index1D col, FloatView delta, FloatView weights, FloatView deltaOut, int inputSize, int outputSize
 	) {
-		float sum = 0;
-		for (int col = 0; col < outputSize; col++) {
-			sum += weightsT[col * inputSize + row] * delta[col];
+		float sum = 0f;
+		for (int row = 0; row < outputSize; row++) {
+			sum += weights[row * inputSize + col] * delta[row];
 		}
-			
-		deltaOut[row] = sum;
+		deltaOut[col] = sum;
 	}
 	
 	private static void WeightGradientKernel(

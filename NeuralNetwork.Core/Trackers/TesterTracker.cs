@@ -15,6 +15,8 @@ public class TesterTracker(int breathTicks) : ScannerTracker(breathTicks) {
 	}
 
 	public void Update(List<DataGuess<float>> mistakes) {
+		if (mistakes == null) return;
+		
 		_mistakes.AddRange(mistakes);
 	}
 

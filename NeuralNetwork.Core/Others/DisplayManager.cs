@@ -2,6 +2,7 @@
 using NeuralNetwork.Core.Data;
 using NeuralNetwork.Core.NetworkFormats;
 using NeuralNetwork.Core.NetworkFormats.Layers;
+using NeuralNetwork.Core.NetworkFormats.Networks;
 
 namespace NeuralNetwork.Core.Others;
 

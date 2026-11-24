@@ -6,18 +6,21 @@ using NeuralNetwork.Core.NetworkFormats.Layers.State;
 namespace NeuralNetwork.Core.NetworkFormats.Layers;
 
 public class InputLayer(int size) : BaseLayer(size), ILayer {
-    public ILayerState CreatePassState() {
-        return new InputLayerState(Backend, NeuronCount);
+    public ILayerForwardState CreateForwardState() {
+        return new InputForwardState(Backend, NeuronCount);
+    }
+    public ILayerBackwardState CreateBackwardState() {
+        throw new NotSupportedException("Backward state is not supported on Input Layers.");
     }
     
-    public void Forward(ITensor<float> input, ILayerState passState, ISingleValue<int> predictionOut, PassMode mode) {
+    public void Forward(ITensor<float> input, ILayerForwardState passState, ISingleValue<int> predictionOut, PassMode mode) {
         ThrowIfDisposed();
-        InputLayerState state = TranslateState<InputLayerState>(passState);
+        InputForwardState state = TranslateState<InputForwardState>(passState);
 
         Backend.Input(input, state.Output);
     }
 
-    public void Delta(ILayerStateDelta backwardState, ITensor<float> deltaOut) {
+    public void Delta(ILayerForwardState forwardState, ILayerBackwardState backwardState, ITensor<float> deltaOut) {
         throw new NotSupportedException("Delta is not supported on Input Layers.");
     }
     

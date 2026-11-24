@@ -21,8 +21,8 @@ public class CpuTensor<T> : BaseTensor<T> where T : unmanaged {
             value.CopyTo(_data);
         }
     }
-    
-    public CpuTensor(params int[] shape) : base(shape) {
+
+    private CpuTensor(params int[] shape) : base(shape) {
         _data = new T[Length];
     }
 

@@ -1,6 +1,7 @@
 using NeuralNetwork.Core.Backend;
 using NeuralNetwork.Core.NetworkFormats;
 using NeuralNetwork.Core.NetworkFormats.Layers;
+using NeuralNetwork.Core.NetworkFormats.Networks;
 
 namespace NeuralNetwork.Core.Others;
 
@@ -48,7 +49,7 @@ public class NetworkFile(string filepath) {
             throw new ArgumentOutOfRangeException(nameof(accuracy), "Accuracy must be in range [0, 1].");
     }
 
-    public NetworkInstance Load(IBackend backend, ILoss lossFunction) {
+    public NetworkInstance Load(IBackend backend, LossFunction lossFunction) {
         if (!Path.Exists(FilePath)) return null;
 
         using BinaryReader reader = new BinaryReader(File.OpenRead(FilePath));
@@ -97,7 +98,7 @@ public class NetworkFile(string filepath) {
         return accuracy;
     }
 
-    private static NetworkInstance ReadOldFormat(BinaryReader reader, IBackend backend, ILoss lossFunction) {
+    private static NetworkInstance ReadOldFormat(BinaryReader reader, IBackend backend, LossFunction lossFunction) {
         float accuracy = reader.ReadSingle();
         ValidateAccuracy(accuracy);
 

@@ -1,5 +1,6 @@
 ﻿using NeuralNetwork.Core.Data;
 using NeuralNetwork.Core.NetworkFormats;
+using NeuralNetwork.Core.NetworkFormats.Networks;
 using NeuralNetwork.Core.Others;
 using NeuralNetwork.Core.Trackers;
 

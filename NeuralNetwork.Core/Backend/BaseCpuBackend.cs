@@ -31,11 +31,11 @@ public abstract class CpuBackend : IBackend, IMatrixBackend, IElementwiseBackend
 		return ((CpuTensor<T>)a).Data.ToArray();
 	}
 
-	public void SetSingle<T>(ISingleValue<T> a, T data) where T : unmanaged {
+	public void Set<T>(ISingleValue<T> a, T data) where T : unmanaged {
 		((CpuValue<T>)a).Value = data;
 	}
 
-	public T ReadSingle<T>(ISingleValue<T> a) where T : unmanaged {
+	public T Read<T>(ISingleValue<T> a) where T : unmanaged {
 		return ((CpuValue<T>)a).Value;
 	}
 

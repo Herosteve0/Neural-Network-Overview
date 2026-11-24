@@ -3,7 +3,7 @@ using ILGPU.Runtime;
 
 namespace NeuralNetwork.Core.Data.SingleValues;
 
-public class GpuValue<T> : ISingleValue<T> where T : unmanaged{
+public class IlgpuValue<T> : ISingleValue<T> where T : unmanaged{
     private bool _disposed;
     
     /**
@@ -21,7 +21,7 @@ public class GpuValue<T> : ISingleValue<T> where T : unmanaged{
      */
     public ArrayView1D<T, Stride1D.Dense> View => Buffer.View;
 
-    public GpuValue(Accelerator accelerator) {
+    private IlgpuValue(Accelerator accelerator) {
         ArgumentNullException.ThrowIfNull(accelerator);
 
         Buffer = accelerator.Allocate1D<T>(1);
@@ -32,7 +32,7 @@ public class GpuValue<T> : ISingleValue<T> where T : unmanaged{
      * Create a GPU tensor and initializes it with CPU data.
      * </summary>
      */
-    public GpuValue(Accelerator accelerator, T data) : this(accelerator) {
+    public IlgpuValue(Accelerator accelerator, T data) : this(accelerator) {
         try {
             Buffer.CopyFromCPU([data]);
         } catch {

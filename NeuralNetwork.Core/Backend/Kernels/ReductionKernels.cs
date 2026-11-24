@@ -23,7 +23,7 @@ public class ReductionKernels(Accelerator accelerator) {
 	private static void SwapView<T>(ref T a, ref T b) {
 		(a, b) = (b, a);
 	}
-	private void ReductionToValue(GpuTensor<float> input, GpuValue<float> output,
+	private void ReductionToValue(IlgpuTensor<float> input, IlgpuValue<float> output,
 		Action<Index1D, int, FloatView, FloatView> kernel
 	) {
 		int count = input.Length;
@@ -64,7 +64,7 @@ public class ReductionKernels(Accelerator accelerator) {
 			outputBuffer?.Dispose();
 		}
 	}
-	private void ReductionToValueAndIndex(GpuTensor<float> input, GpuValue<float> outputValue, GpuValue<int> outputIndex,
+	private void ReductionToValueAndIndex(IlgpuTensor<float> input, IlgpuValue<float> outputValue, IlgpuValue<int> outputIndex,
 		Action<Index1D, int, FloatView, IntView, FloatView, IntView> kernel
 	) {
 		int count = input.Length;
@@ -129,17 +129,17 @@ public class ReductionKernels(Accelerator accelerator) {
 		}
 	}
 
-	public void MaxIndex(GpuTensor<float> input, GpuValue<float> outputValue, GpuValue<int> outputIndex) {
+	public void MaxIndex(IlgpuTensor<float> input, IlgpuValue<float> outputValue, IlgpuValue<int> outputIndex) {
 		ReductionToValueAndIndex(input, outputValue, outputIndex, MaxIndexReduction);
 	}
-	public void Max(GpuTensor<float> input, GpuValue<float> output) {
+	public void Max(IlgpuTensor<float> input, IlgpuValue<float> output) {
 		ReductionToValue(input, output, MaxReduction);
 	}
-	public void Min(GpuTensor<float> input, GpuValue<float> output) {
+	public void Min(IlgpuTensor<float> input, IlgpuValue<float> output) {
 		ReductionToValue(input, output, MinReduction);
 	}
 
-	public void Sum(GpuTensor<float> input, GpuValue<float> output) {
+	public void Sum(IlgpuTensor<float> input, IlgpuValue<float> output) {
 		ReductionToValue(input, output, SumReduction);
 	}
 	

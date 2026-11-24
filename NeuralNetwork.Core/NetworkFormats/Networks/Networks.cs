@@ -1,9 +1,9 @@
 using NeuralNetwork.Core.Backend;
 using NeuralNetwork.Core.Data;
+using NeuralNetwork.Core.NetworkFormats.ExecutableNetworks;
 using NeuralNetwork.Core.NetworkFormats.Layers;
-using NeuralNetwork.Core.NetworkFormats.Layers.State;
 
-namespace NeuralNetwork.Core.NetworkFormats;
+namespace NeuralNetwork.Core.NetworkFormats.Networks;
 
 /**
  * <param name="Accuracy">
@@ -27,7 +27,7 @@ public record NetworkInstance(Network Network, float Accuracy) : IDisposable {
     
 public class Network : IDisposable {
     public IBackend Backend { get; }
-    public ILoss LossFunction { get; }
+    public LossFunction LossFunction { get; }
     private bool _disposed;
     
     private readonly BaseLayer[] _layers;
@@ -35,10 +35,10 @@ public class Network : IDisposable {
     public int LayerAmount { get; }
     public IReadOnlyList<int> LayerLength { get; }
 
-    public Network(IBackend backend, ILoss lossFunction, Random random, params BaseLayer[] layers) 
+    public Network(IBackend backend, LossFunction lossFunction, Random random, params BaseLayer[] layers) 
         : this(backend, lossFunction, layers, random, true) { }
 
-    private Network(IBackend backend, ILoss lossFunction, BaseLayer[] layers, Random random, bool initializeLayers) {
+    private Network(IBackend backend, LossFunction lossFunction, BaseLayer[] layers, Random random, bool initializeLayers) {
         ArgumentNullException.ThrowIfNull(backend);
         ArgumentNullException.ThrowIfNull(lossFunction);
         ArgumentNullException.ThrowIfNull(layers);
@@ -100,7 +100,7 @@ public class Network : IDisposable {
         }
     }
 
-    internal static Network FromLoadedLayers(IBackend backend, ILoss lossFunction, BaseLayer[] layers) {
+    internal static Network FromLoadedLayers(IBackend backend, LossFunction lossFunction, BaseLayer[] layers) {
         return new Network(backend, lossFunction, layers, null, false);
     }
 
@@ -141,10 +141,10 @@ public class Network : IDisposable {
     public DataGuess<float> QuickCalculate(DataSample<float> input) {
         ThrowIfDisposed();
         
-        using VirtualNetwork virtualNetwork = new VirtualNetwork(this);
-        virtualNetwork.LoadBuffer(new DataBatch<float>(input));
-        virtualNetwork.CompleteForwardPass(this, PassMode.Inference);
-        return virtualNetwork.RawGuess(0);
+        using InferenceNetwork inferenceNetwork = new InferenceNetwork(this);
+        inferenceNetwork.LoadBuffer(new DataBatch<float>(input));
+        inferenceNetwork.CompleteForwardPass(this);
+        return inferenceNetwork.RawGuess(0);
     }
 
     public void Save(BinaryWriter writer) {
@@ -158,7 +158,7 @@ public class Network : IDisposable {
         }
     }
 
-    public static Network Load(BinaryReader reader, IBackend backend, ILoss lossFunction) {
+    public static Network Load(BinaryReader reader, IBackend backend, LossFunction lossFunction) {
         ArgumentNullException.ThrowIfNull(reader);
         ArgumentNullException.ThrowIfNull(backend);
         ArgumentNullException.ThrowIfNull(lossFunction);

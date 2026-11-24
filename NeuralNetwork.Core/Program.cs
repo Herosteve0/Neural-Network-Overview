@@ -4,8 +4,8 @@ using ILGPU.Runtime.Cuda;
 using NeuralNetwork.Core.Backend;
 using NeuralNetwork.Core.Data;
 using NeuralNetwork.Core.Iterators;
-using NeuralNetwork.Core.NetworkFormats;
 using NeuralNetwork.Core.NetworkFormats.Layers;
+using NeuralNetwork.Core.NetworkFormats.Networks;
 using NeuralNetwork.Core.Others;
 
 /*
@@ -55,16 +55,17 @@ using NeuralNetwork.Core.Others;
 DataBatch<float> trainingData = new DataBatch<float>(MnistDatabase.LoadAllTrainingData());
 DataBatch<float> testingData = new DataBatch<float>(MnistDatabase.LoadAllTestingData());
 
-Context context = Context.Create(builder => builder.Cuda().EnableAlgorithms());
-Accelerator accelerator = context.Devices[0].CreateAccelerator(context);
+using Context context = Context.Create(builder => builder.Cuda().EnableAlgorithms());
+using Accelerator accelerator = context.Devices[0].CreateAccelerator(context);
 
-// await TestRun();
-await SimpleExecution("save.nn", new GpuBackend(accelerator), 1, 1, false);
-await SimpleExecution("save.nn", new GpuBackend(accelerator), 20, 4, false);
+// ProgramTester.CheckProgram(true);
+await TimedRun();
+// await SimpleExecution("save.nn", new IlgpuBackend(accelerator), 1, 1, false);
+// await SimpleExecution("save.nn", new IlgpuBackend(accelerator), 25, 5, false);
 return;
 
 async Task SimpleExecution(string saveFile, IBackend backend, int iterations, int recycles, bool multiThread) {
-    Trainer trainer = new Trainer(2500, 1, 5000, new LearningRate(0.085f, 0.9f, 5), multiThread);
+    Trainer trainer = new Trainer(2500, 4, 5000, new LearningRate(0.085f, 0.9f, 5), multiThread);
     trainer.LoadBatch(trainingData, recycles);
 
     Tester tester = new Tester(2500, multiThread);
@@ -74,7 +75,7 @@ async Task SimpleExecution(string saveFile, IBackend backend, int iterations, in
 
     NetworkFile storer = new NetworkFile(saveFile);
     
-    ILoss lossFunction = new CrossEntropy();
+    LossFunction lossFunction = new CrossEntropy();
 
     // NetworkInstance network = storer.Load(backend) ?? new NetworkInstance(new Network([784, 16, 16, 10], backend, random), 0f);
     NetworkInstance network = storer.Load(backend, lossFunction) ?? new NetworkInstance(
@@ -125,9 +126,8 @@ async Task SimpleExecution(string saveFile, IBackend backend, int iterations, in
     network.Dispose();
 }
 
-async Task TestRun() {
-    IBackend[] backends = [new ScalarBackend(), new SimdBackend(), new GpuBackend(accelerator)];
-    ILoss lossFunction = new CrossEntropy();
+async Task TimedRun() {
+    IBackend[] backends = [new ScalarBackend(), new SimdBackend(), new IlgpuBackend(accelerator)];
     
     Console.WriteLine();
 
@@ -140,7 +140,7 @@ async Task TestRun() {
     
         foreach (IBackend backend in backends) {
             Random random = new Random(1000);
-            Network network = new Network(backend, lossFunction, random,
+            using Network network = new Network(backend, new CrossEntropy(), random,
                 new InputLayer(784),
                 new FullyConnectedLayer(64, new ReLu()),
                 new FullyConnectedLayer(64, new ReLu()),
@@ -150,9 +150,11 @@ async Task TestRun() {
             await trainer.Train(network, random);
             float accuracy = await tester.Test(network);
 
-            Console.WriteLine($"[{trainer.Tracker.TimeSinceStart + tester.Tracker.TimeSinceStart}] " + (multithread ? "Multithreaded " : "") + $"{backend.GetType().Name} Accuracy: {accuracy * 100f}%");
-
-            network.Dispose();
+            Console.WriteLine(
+                $"[{trainer.Tracker.TimeSinceStart + tester.Tracker.TimeSinceStart}] " +
+                (multithread ? "Multithreaded " : "") +
+                $"{backend.GetType().Name} Accuracy: {accuracy * 100f}%"
+            );
         }
     }
 }

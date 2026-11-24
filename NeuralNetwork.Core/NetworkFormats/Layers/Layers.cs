@@ -7,27 +7,31 @@ namespace NeuralNetwork.Core.NetworkFormats.Layers;
 
 public interface ILayer {
     /**
-     * Creates a pass state used for instancing the network.
+     * Creates a forward state, containg the inference values of the layer.
      */
-    ILayerState CreatePassState();
+    ILayerForwardState CreateForwardState();
+    /**
+     * Creates a backward state, containg the back propagation values of the layer.
+     */
+    ILayerBackwardState CreateBackwardState();
     
     /**
      * This layer prepares the input for the next layer's inputs. If it's the last layer, makes a prediction instead.
      */
-    void Forward(ITensor<float> input, ILayerState passState, ISingleValue<int> predictionOut, PassMode mode);
+    void Forward(ITensor<float> input, ILayerForwardState passState, ISingleValue<int> predictionOut, PassMode mode);
     /**
      * This layer prepares the previous layer's delta using its own. The Loss Function should be used for the last layer.
      */
-    void Delta(ILayerStateDelta backwardState, ITensor<float> deltaOut);
+    void Delta(ILayerForwardState forwardState, ILayerBackwardState backwardState, ITensor<float> deltaOut);
 }
 
 public interface ITrainableLayer {
     /**
      * This layer applies it's activation function derivative to its delta.
      */
-    void ActivationDelta(ILayerStateDelta passState);
-    void BackPropagation(ITensor<float> activations, ILayerStateDelta passState);
-    void Adjust(ILayerState passState, float scale);
+    void ActivationDelta(ILayerForwardState forwardState, ILayerBackwardState backwardState);
+    void BackPropagation(ITensor<float> activations, ILayerBackwardState backwardState);
+    void Adjust(ILayerBackwardState backwardState, float scale);
     
     void Mutate(Random random, float mutationStrength);
 }
@@ -42,7 +46,7 @@ public abstract class BaseLayer(int size) : IDisposable {
     public void Initialize(IBackend backend) {
         ArgumentNullException.ThrowIfNull(backend);
         if (_initialized)
-            throw new InvalidOperationException("A layer can only be initialized once.");
+            throw new InvalidOperationException("The layer has already been initialized.");
         
         Backend = backend;
         _initialized = true;
@@ -56,13 +60,13 @@ public abstract class BaseLayer(int size) : IDisposable {
         Initialize(backend);
     }
     
-    protected static TPass TranslateState<TPass>(ILayerState passState) where TPass : ILayerState {
+    protected static TPass TranslateState<TPass>(ILayerForwardState passState) where TPass : ILayerForwardState {
         if (passState is not TPass state)
             throw new InvalidDataException(
                 $"The pass state must be {typeof(TPass).Name}, got {passState.GetType().Name}.");
         return state;
     }
-    protected static TPass TranslateState<TPass>(ILayerStateDelta passState) where TPass : ILayerState {
+    protected static TPass TranslateState<TPass>(ILayerBackwardState passState) where TPass : ILayerBackwardState {
         if (passState is not TPass state)
             throw new InvalidDataException(
                 $"The pass state must be {typeof(TPass).Name}, got {passState.GetType().Name}.");

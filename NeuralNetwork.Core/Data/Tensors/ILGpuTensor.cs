@@ -3,7 +3,7 @@ using ILGPU.Runtime;
 
 namespace NeuralNetwork.Core.Data.Tensors;
 
-public class GpuTensor<T> : BaseTensor<T> where T : unmanaged {
+public class IlgpuTensor<T> : BaseTensor<T> where T : unmanaged {
 
     private bool _disposed;
 
@@ -22,7 +22,7 @@ public class GpuTensor<T> : BaseTensor<T> where T : unmanaged {
     /// <summary>
     /// Create a GPU tensor.
     /// </summary>
-    public GpuTensor(Accelerator accelerator, params int[] shape) : base(shape) {
+    private IlgpuTensor(Accelerator accelerator, params int[] shape) : base(shape) {
         ArgumentNullException.ThrowIfNull(accelerator);
 
         Buffer = accelerator.Allocate1D<T>(Length);
@@ -31,7 +31,7 @@ public class GpuTensor<T> : BaseTensor<T> where T : unmanaged {
     /// <summary>
     /// Create a GPU tensor and initializes it with CPU data.
     /// </summary>
-    public GpuTensor(Accelerator accelerator, T[] data, params int[] shape) : this(accelerator, shape) {
+    public IlgpuTensor(Accelerator accelerator, T[] data, params int[] shape) : this(accelerator, shape) {
         try {
             ArgumentNullException.ThrowIfNull(data);
 
@@ -53,7 +53,7 @@ public class GpuTensor<T> : BaseTensor<T> where T : unmanaged {
     /// <summary>
     /// Creates a GPU tensor filled with a given value.
     /// </summary>
-    public GpuTensor(Accelerator accelerator, T value, params int[] shape) : this(accelerator, shape) {
+    public IlgpuTensor(Accelerator accelerator, T value, params int[] shape) : this(accelerator, shape) {
         T[] data = new T[Length];
         Array.Fill(data, value);
         Buffer.CopyFromCPU(data);

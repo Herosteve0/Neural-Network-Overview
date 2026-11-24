@@ -8,7 +8,7 @@ namespace NeuralNetwork.Core.Backend;
  */
 public class ScalarBackend : CpuBackend {
 	public ScalarBackend() {
-		Console.WriteLine("Initialized Scalar Backend.");
+		Console.WriteLine("Using Scalar Backend.");
 	}
 	
 	protected override void CpuInput(CpuTensor<float> input, CpuTensor<float> activationOut) {
@@ -48,13 +48,13 @@ public class ScalarBackend : CpuBackend {
 	}
 
 	protected override void CpuDelta(CpuTensor<float> delta, CpuTensor<float> weights, CpuTensor<float> deltaOut) {
-		int lengthRows = weights.Shape[1];
-		int lengthColumns = weights.Shape[0];
-
-		for (int row = 0; row < lengthRows; row++) {
-			deltaOut[row] = 0f;
-			for (int col = 0; col < lengthColumns; col++) {
-				deltaOut[row] += weights[col, row] * delta[col];
+		int lengthRows = weights.Shape[0];
+		int lengthColumns = weights.Shape[1];
+		
+		for (int col = 0; col < lengthColumns; col++) {
+			deltaOut[col] = 0f;
+			for (int row = 0; row < lengthRows; row++) {
+				deltaOut[col] += weights[row, col] * delta[row];
 			}
 		}
 	}
@@ -166,7 +166,7 @@ public class ScalarBackend : CpuBackend {
 
 		float sum = 0f;
 		for (int i = 0; i < length; i++) {
-			sum += (float)Math.Exp(input[i]);
+			sum += (float)Math.Exp(input[i] - max);
 		}
 
 		float dot = 0f;
@@ -185,8 +185,7 @@ public class ScalarBackend : CpuBackend {
 		int length = input.Length;
 
 		for (int i = 0; i < length; i++) {
-			float e = (float)Math.Exp(-input[i]);
-			output[i] = 1 / (1 + e);
+			output[i] = 1f / (1 + (float)Math.Exp(-input[i]));
 		}
 	}
 	protected override void CpuSigmoidBackward(CpuTensor<float> input, CpuTensor<float> gradient) {
