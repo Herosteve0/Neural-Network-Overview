@@ -32,6 +32,8 @@ public class LearningRate {
         ValidateLearningRate(learningRate);
         if (!float.IsFinite(decayMultiplier) || decayMultiplier is < 0f or > 1f)
             throw new ArgumentOutOfRangeException(nameof(decayMultiplier), "Decay multiplier must be in range [0, 1].");
+        if (decayPatience <= 0)
+            throw new ArgumentOutOfRangeException(nameof(decayPatience), "Decay patience must be positive.");
         
         BaseLearningRate = learningRate;
         ResetLearningRate();

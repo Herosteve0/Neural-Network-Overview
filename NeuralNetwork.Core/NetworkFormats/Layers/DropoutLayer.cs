@@ -81,7 +81,13 @@ public class DropoutLayer(float dropoutChance, int seed) : BaseLayer(0), ILayer 
         
         return layer;
     }
-    
+
+    public override void ValidateLayer(int index, int inputSize) {
+        if (NeuronCount != inputSize)
+            throw new InvalidDataException(
+                $"Dropout layer {index} has {NeuronCount} neurons, expected {inputSize}");
+    }
+
     public override void Dispose() {
         if (Disposed) return;
         Disposed = true;

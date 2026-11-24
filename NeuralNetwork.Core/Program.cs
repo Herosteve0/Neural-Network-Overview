@@ -59,11 +59,12 @@ Context context = Context.Create(builder => builder.Cuda().EnableAlgorithms());
 Accelerator accelerator = context.Devices[0].CreateAccelerator(context);
 
 // await TestRun();
-await SimpleExecution("dropout_save.nn", new GpuBackend(accelerator), 3, 40, false);
+await SimpleExecution("save.nn", new GpuBackend(accelerator), 1, 1, false);
+await SimpleExecution("save.nn", new GpuBackend(accelerator), 20, 4, false);
 return;
 
 async Task SimpleExecution(string saveFile, IBackend backend, int iterations, int recycles, bool multiThread) {
-    Trainer trainer = new Trainer(2500, 1, 5000, new LearningRate(0.085f, 0.9f, 1000), multiThread);
+    Trainer trainer = new Trainer(2500, 1, 5000, new LearningRate(0.085f, 0.9f, 5), multiThread);
     trainer.LoadBatch(trainingData, recycles);
 
     Tester tester = new Tester(2500, multiThread);
@@ -83,9 +84,13 @@ async Task SimpleExecution(string saveFile, IBackend backend, int iterations, in
             random,
             
             new InputLayer(784),
-            new FullyConnectedLayer(64, new ReLu()),
-            new DropoutLayer(0.15f, 200),
-            new FullyConnectedLayer(64, new ReLu()),
+            new FullyConnectedLayer(512, new ReLu()),
+            new DropoutLayer(0.2f, 100),
+            new FullyConnectedLayer(512, new ReLu()),
+            new DropoutLayer(0.2f, 200),
+            new FullyConnectedLayer(512, new ReLu()),
+            new DropoutLayer(0.2f, 300),
+            new FullyConnectedLayer(512, new ReLu()),
             new FullyConnectedLayer(10, new Softmax())
         ), 0f
     );

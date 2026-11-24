@@ -53,6 +53,7 @@ public class Trainer(
 
     protected override void OnEndSample() {
         base.OnEndSample();
+        
         learningInfo.CheckLoss(_iterationLoss / DataSize);
         if (learningInfo.HasDecayed) {
             ForceStop();
@@ -61,6 +62,8 @@ public class Trainer(
 
     protected override void OnBreath() {
         base.OnBreath();
+        
+        _iterationLoss += _lossGain;
         
         Tracker.Update(learningInfo, _lossGain, _correctGain);
         _lossGain = 0f;
@@ -94,11 +97,6 @@ public class Trainer(
         
         int correctValue = backend.ReadSingle(correct);
         correct.Dispose();
-
-        learningInfo.CheckLoss(lossValue);
-        if (learningInfo.HasDecayed) {
-            ForceStop();
-        }
 
         _correctGain += correctValue;
         _lossGain += lossValue;

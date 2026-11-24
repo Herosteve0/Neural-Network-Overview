@@ -84,7 +84,7 @@ public abstract class ScannerTracker(int breathTicks) {
 
 
 	public void TogglePause() {
-		if (IsRunning) Pause();
+		if (IsPaused) Pause();
 		else if (IsRunning) Resume();
 	}
 

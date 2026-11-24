@@ -10,7 +10,7 @@ namespace NeuralNetwork.Core.NetworkFormats;
  * The accuracy of the network. In range [0, 1].
  * </param>
  */
-public record NetworkInstance(Network Network, float Accuracy) {
+public record NetworkInstance(Network Network, float Accuracy) : IDisposable {
     public NetworkInstance Copy() {
         return this with { Network = Network.Copy() };
     }
@@ -21,10 +21,11 @@ public record NetworkInstance(Network Network, float Accuracy) {
     
     public void Dispose() {
         Network.Dispose();
+        GC.SuppressFinalize(this);
     }
 }
     
-public class Network : IDisposable{
+public class Network : IDisposable {
     public IBackend Backend { get; }
     public ILoss LossFunction { get; }
     private bool _disposed;
@@ -72,7 +73,7 @@ public class Network : IDisposable{
                     if (layer.NeuronCount <= 0)
                         throw new ArgumentException($"Layer {i} resolved to an invalid neuron count.", nameof(layers));
 
-                    ValidateInitializedLayer(layer, layerLengths[i - 1], i);
+                    layer.ValidateLayer(i, layerLengths[i - 1]);
                     layerLengths[i] = layer.NeuronCount;
                 }
                 
@@ -92,7 +93,7 @@ public class Network : IDisposable{
                     throw new InvalidDataException($"Serialized layer {i} has an invalid neuron count.");
                 
                 layerLengths[i] = layer.NeuronCount;
-                if (i > 0) ValidateInitializedLayer(layer, layerLengths[i - 1], i);
+                if (i > 0) layer.ValidateLayer(i, layerLengths[i - 1]);
             }
             
             LossFunction.Initialize(backend);
@@ -134,25 +135,6 @@ public class Network : IDisposable{
         }
     }
 
-    private static void ValidateInitializedLayer(BaseLayer layer, int inputSize, int index) {
-        switch (layer) {
-            case DropoutLayer:
-                if (layer.NeuronCount != inputSize)
-                    throw new InvalidDataException(
-                        $"Dropout layer {index} has {layer.NeuronCount} neurons, expected {inputSize}");
-                break;
-            case FullyConnectedLayer fullyConnectedLayer:
-                if (fullyConnectedLayer.Weights is null ||
-                    fullyConnectedLayer.Bias is null ||
-                    fullyConnectedLayer.Weights.Rank != 2 ||
-                    fullyConnectedLayer.Weights.Shape[0] != layer.NeuronCount ||
-                    fullyConnectedLayer.Weights.Shape[1] != inputSize ||
-                    fullyConnectedLayer.Bias.Length != layer.NeuronCount)
-                    throw new InvalidDataException($"Fully connected layer {index} has inconsistent parameter shapes.");
-                break;
-        }
-    }
-    
     public ILayer this[int index] => _layers[index] as ILayer
         ?? throw new InvalidOperationException($"Layer {index} does not implement ILayer.");
     
@@ -242,13 +224,13 @@ public class Network : IDisposable{
     
     public void Dispose() {
         if (_disposed) return;
-        _disposed = true;
         
         Backend.Synchronize();
         foreach (BaseLayer layer in _layers) {
             layer.Dispose();
         }
-        
+
+        _disposed = true;
         GC.SuppressFinalize(this);
     }
 }

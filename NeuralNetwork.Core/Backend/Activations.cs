@@ -8,6 +8,11 @@ public interface IActivation {
 
     void Save(BinaryWriter writer);
 
+    protected static IActivationBackend ReadBackend(IBackend backend) {
+        return backend as IActivationBackend
+            ?? throw new NotSupportedException($"The selected backend does not implement activation operations.");
+    }
+    
     public static IActivation Load(BinaryReader reader) {
         string type = reader.ReadString();
 
@@ -16,7 +21,7 @@ public interface IActivation {
             "leaky_relu" => new LeakyReLu(reader.ReadSingle()),
             "softmax" => new Softmax(),
             "sigmoid" => new Sigmoid(),
-            _ => null 
+            _ => throw new InvalidDataException($"Unknown action type '{type}'.")
         };
     }
     
@@ -28,7 +33,7 @@ public sealed class ReLu : IActivation {
     private IActivationBackend _backend;
 
     public void Initialize(IBackend backend) {
-        _backend = backend as IActivationBackend;
+        _backend = IActivation.ReadBackend(backend);
     }
 
     public void Save(BinaryWriter writer) {
@@ -49,25 +54,32 @@ public sealed class ReLu : IActivation {
 
 public sealed class LeakyReLu(float a) : IActivation {
     private IActivationBackend _backend;
+    private readonly float _a = ValidateParameter(a);
 
+    private static float ValidateParameter(float a) {
+        if (!float.IsFinite(a))
+            throw new ArgumentOutOfRangeException(nameof(a));
+        return a;
+    }
+    
     public void Initialize(IBackend backend) {
-        _backend = backend as IActivationBackend;
+        _backend = IActivation.ReadBackend(backend);
     }
 
     public void Save(BinaryWriter writer) {
         writer.Write("leaky_relu");
-        writer.Write(a);
+        writer.Write(_a);
     }
 
     public void Forward(ITensor<float> input, ITensor<float> output, ISingleValue<int> predictionOut) {
-        _backend.LeakyReLu_Forward(input, a, output);
+        _backend.LeakyReLu_Forward(input, _a, output);
         
         if (predictionOut == null) return;
         ((IBackend)_backend).MaxIndex(output, predictionOut);
     }
 
     public void Backward(ITensor<float> input, ITensor<float> gradient) {
-        _backend.LeakyReLu_Backward(input, a, gradient);
+        _backend.LeakyReLu_Backward(input, _a, gradient);
     }
 }
 
@@ -75,7 +87,7 @@ public sealed class Softmax : IActivation {
     private IActivationBackend _backend;
 
     public void Initialize(IBackend backend) {
-        _backend = backend as IActivationBackend;
+        _backend = IActivation.ReadBackend(backend);
     }
 
     public void Save(BinaryWriter writer) {
@@ -95,7 +107,7 @@ public sealed class Sigmoid : IActivation {
     private IActivationBackend _backend;
 
     public void Initialize(IBackend backend) {
-        _backend = backend as IActivationBackend;
+        _backend = IActivation.ReadBackend(backend);
     }
 
     public void Save(BinaryWriter writer) {

@@ -59,10 +59,9 @@ public class ReductionKernels(Accelerator accelerator) {
 		} finally {
 			try {
 				accelerator.Synchronize();
-			} catch {
-				inputBuffer?.Dispose();
-				outputBuffer?.Dispose();
-			}
+			} catch { /* Ignore */}
+			inputBuffer?.Dispose();
+			outputBuffer?.Dispose();
 		}
 	}
 	private void ReductionToValueAndIndex(GpuTensor<float> input, GpuValue<float> outputValue, GpuValue<int> outputIndex,
@@ -122,12 +121,11 @@ public class ReductionKernels(Accelerator accelerator) {
 		} finally {
 			try {
 				accelerator.Synchronize();
-			} catch {
-				inputValuesBuffer?.Dispose();
-				inputIndicesBuffer?.Dispose();
-				outputValuesBuffer?.Dispose();
-				outputIndicesBuffer?.Dispose();
-			}
+			} catch { /* Ignore */}
+			inputValuesBuffer?.Dispose();
+			inputIndicesBuffer?.Dispose();
+			outputValuesBuffer?.Dispose();
+			outputIndicesBuffer?.Dispose();
 		}
 	}
 

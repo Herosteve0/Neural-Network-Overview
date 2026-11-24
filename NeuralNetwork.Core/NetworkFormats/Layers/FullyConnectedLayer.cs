@@ -18,8 +18,8 @@ public class FullyConnectedLayer(int size, IActivation activation) : BaseLayer(s
     private readonly IActivation _activation = activation 
                                                ?? throw new ArgumentNullException(nameof(activation));
 
-    public ITensor<float> Weights { get; private set; }
-    public ITensor<float> Bias { get; private set; }
+    private ITensor<float> _weights;
+    private ITensor<float> _bias;
 
     public override void Initialize(int inputSize, IBackend backend, Random random) {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(NeuronCount);
@@ -36,8 +36,8 @@ public class FullyConnectedLayer(int size, IActivation activation) : BaseLayer(s
                 data[i] = value * (2 * random.NextSingle() - 1);
             }
     
-            Weights = Backend.CreateTensor(data, NeuronCount, inputSize);
-            Bias = Backend.CreateTensor(0f, NeuronCount);
+            _weights = Backend.CreateTensor(data, NeuronCount, inputSize);
+            _bias = Backend.CreateTensor(0f, NeuronCount);
         } catch {
             Dispose();
             throw;
@@ -60,8 +60,8 @@ public class FullyConnectedLayer(int size, IActivation activation) : BaseLayer(s
         _activation.Initialize(backend);
 
         try {
-            Weights = Backend.CreateTensor(data[0], NeuronCount, inputSize);
-            Bias = Backend.CreateTensor(data[1], NeuronCount);
+            _weights = Backend.CreateTensor(data[0], NeuronCount, inputSize);
+            _bias = Backend.CreateTensor(data[1], NeuronCount);
         } catch {
             Dispose();
             throw;
@@ -69,7 +69,7 @@ public class FullyConnectedLayer(int size, IActivation activation) : BaseLayer(s
     }
 
     public ILayerState CreatePassState() {
-        return new FullyConnectedLayerState(Backend, Weights.Shape[1], NeuronCount);
+        return new FullyConnectedLayerState(Backend, _weights.Shape[1], NeuronCount);
     }
 
     public void Forward(
@@ -78,13 +78,13 @@ public class FullyConnectedLayer(int size, IActivation activation) : BaseLayer(s
         ThrowIfDisposed();
         FullyConnectedLayerState state = TranslateState<FullyConnectedLayerState>(passState);
         
-        MatrixBackend.Linear(input, Weights, Bias, state.Values);
+        MatrixBackend.Linear(input, _weights, _bias, state.Values);
         _activation.Forward(state.Values, state.Output, predictionOut);
     }
 
     public void Delta(ILayerStateDelta backwardState, ITensor<float> deltaOut) {
         ThrowIfDisposed();
-        MatrixBackend.Delta(backwardState.Delta, Weights, deltaOut);
+        MatrixBackend.Delta(backwardState.Delta, _weights, deltaOut);
     }
 
     public void ActivationDelta(ILayerStateDelta passState) {
@@ -107,7 +107,7 @@ public class FullyConnectedLayer(int size, IActivation activation) : BaseLayer(s
         ThrowIfDisposed();
         FullyConnectedLayerState state = TranslateState<FullyConnectedLayerState>(passState);
         
-        ElementwiseBackend.Adjust(state.WeightsDelta, state.BiasDelta, scale, Weights, Bias);
+        ElementwiseBackend.Adjust(state.WeightsDelta, state.BiasDelta, scale, _weights, _bias);
     }
     
     public void Mutate(Random random, float mutationStrength) {
@@ -118,9 +118,9 @@ public class FullyConnectedLayer(int size, IActivation activation) : BaseLayer(s
         ITensor<float> biasDelta = null;
 
         try {
-            weightsDelta = GenerateOffset(Backend, random, Weights, mutationStrength);
-            biasDelta = GenerateOffset(Backend, random, Bias, mutationStrength);
-            ElementwiseBackend.Adjust(weightsDelta, biasDelta, 1, Weights, Bias);
+            weightsDelta = GenerateOffset(Backend, random, _weights, mutationStrength);
+            biasDelta = GenerateOffset(Backend, random, _bias, mutationStrength);
+            ElementwiseBackend.Adjust(weightsDelta, biasDelta, 1, _weights, _bias);
         } finally {
             Backend.Synchronize();
             weightsDelta?.Dispose();
@@ -154,11 +154,11 @@ public class FullyConnectedLayer(int size, IActivation activation) : BaseLayer(s
         
         FullyConnectedLayer layer = new FullyConnectedLayer(NeuronCount, _activation);
         layer.InitializeFromData(
-            Weights.Shape[1],
+            _weights.Shape[1],
             Backend,
             [
-                Backend.Read(Weights),
-                Backend.Read(Bias)
+                Backend.Read(_weights),
+                Backend.Read(_bias)
             ]
         );
         return layer;
@@ -169,14 +169,14 @@ public class FullyConnectedLayer(int size, IActivation activation) : BaseLayer(s
         
         writer.Write("fully_connected");
         writer.Write(NeuronCount);
-        writer.Write(Weights.Shape[1]);
+        writer.Write(_weights.Shape[1]);
         
         _activation.Save(writer);
         
-        foreach (float value in Backend.Read(Weights)) {
+        foreach (float value in Backend.Read(_weights)) {
             writer.Write(value);
         }
-        foreach (float value in Backend.Read(Bias)) {
+        foreach (float value in Backend.Read(_bias)) {
             writer.Write(value);
         }
     }
@@ -192,7 +192,10 @@ public class FullyConnectedLayer(int size, IActivation activation) : BaseLayer(s
         
         FullyConnectedLayer layer = new FullyConnectedLayer(neuronCount, activation);
         
-        float[][] data = [new float[neuronCount * inputSize], new float[neuronCount]];
+        float[][] data = [
+            new float[checked(neuronCount * inputSize)],
+            new float[neuronCount]
+        ];
 
         foreach (float[] d in data) {
             for (int i = 0; i < d.Length; i++) {
@@ -205,16 +208,41 @@ public class FullyConnectedLayer(int size, IActivation activation) : BaseLayer(s
         return layer;
     }
 
+    public float[][] GetWeights() {
+        ThrowIfDisposed();
+
+        float[] data = Backend.Read(_weights);
+        float[][] r = new float[_weights.Shape[0]][];
+
+        for (int i = 0; i < _weights.Shape[0]; i++) {
+            r[i] = new float[_weights.Shape[1]];
+            for (int j = 0; j < _weights.Shape[1]; j++) {
+                r[i][j] = data[i * _weights.Shape[1] + j];
+            }
+        }
+        
+        return r;
+    }
+
+    public override void ValidateLayer(int index, int inputSize) {
+    if (_weights is null || _bias is null ||
+        _weights.Rank != 2 ||
+        _weights.Shape[0] != NeuronCount ||
+        _weights.Shape[1] != inputSize ||
+        _bias.Length != NeuronCount)
+        throw new InvalidDataException($"Fully connected layer {index} has inconsistent parameter shapes.");
+    }
+
     public override void Dispose() {
         if (Disposed) return;
+        
+        _weights?.Dispose();
+        _weights = null;
+        
+        _bias?.Dispose();
+        _bias = null;
+        
         Disposed = true;
-        
-        Weights?.Dispose();
-        Weights = null;
-        
-        Bias?.Dispose();
-        Bias = null;
-        
         GC.SuppressFinalize(this);
     }
 }

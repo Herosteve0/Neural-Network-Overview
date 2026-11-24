@@ -204,8 +204,6 @@ public class VirtualNetwork : IDisposable {
 
     public void Dispose() {
         if (_disposed) return;
-        _disposed = true;
-        GC.SuppressFinalize(this);
         
         _backend.Synchronize();
         
@@ -230,5 +228,8 @@ public class VirtualNetwork : IDisposable {
         foreach (ILayerState state in _states) {
             state.Dispose();
         }
+        
+        _disposed = true;
+        GC.SuppressFinalize(this);
     }
 }

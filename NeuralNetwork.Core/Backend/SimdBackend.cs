@@ -204,7 +204,7 @@ public class SimdBackend : CpuBackend {
 	}
 
 	protected override void CpuReLuForward(CpuTensor<float> input, CpuTensor<float> output) {
-		int length = input.Shape[0];
+		int length = input.Length;
 
 		ReadOnlySpan<float> inputSpan = input.Data;
 
@@ -224,7 +224,7 @@ public class SimdBackend : CpuBackend {
 	}
 
 	protected override void CpuReLuBackward(CpuTensor<float> input, CpuTensor<float> gradient) {
-		int length = input.Shape[0];
+		int length = input.Length;
 
 		ReadOnlySpan<float> inputSpan = input.Data;
 
@@ -249,7 +249,7 @@ public class SimdBackend : CpuBackend {
 	}
 
 	protected override void CpuLeakyReLuForward(CpuTensor<float> input, float a, CpuTensor<float> output) {
-		int length = input.Shape[0];
+		int length = input.Length;
 		
 		ReadOnlySpan<float> inputSpan = input.Data;
 		
@@ -274,7 +274,7 @@ public class SimdBackend : CpuBackend {
 	}
 
 	protected override void CpuLeakyReLuBackward(CpuTensor<float> input, float a, CpuTensor<float> gradient) {
-		int length = input.Shape[0];
+		int length = input.Length;
 		
 		ReadOnlySpan<float> inputSpan = input.Data;
 		
@@ -345,7 +345,7 @@ public class SimdBackend : CpuBackend {
 	}
 
 	protected override void CpuSoftmaxBackward(CpuTensor<float> input, CpuTensor<float> gradient) {
-		int length = input.Shape[0];
+		int length = input.Length;
 		
 		ReadOnlySpan<float> inputSpan = input.Data;
 		Span<float> gradientSpan = gradient.Data;
@@ -387,7 +387,7 @@ public class SimdBackend : CpuBackend {
 		float dot = Vector.Sum(vDot);
 		for (; i < length; i++) {
 			float probability = (float)Math.Exp(inputSpan[i] - max) / sum;
-			dot += probability;
+			dot += gradientSpan[i] * probability;
 		}
 		vDot = new Vector<float>(dot);
 		
@@ -409,7 +409,7 @@ public class SimdBackend : CpuBackend {
 	}
 
 	protected override void CpuSigmoidForward(CpuTensor<float> input, CpuTensor<float> output) {
-		int length = input.Shape[0];
+		int length = input.Length;
 		
 		ReadOnlySpan<float> inputSpan = input.Data;
 		Span<float> outputSpan = output.Data;
@@ -431,7 +431,7 @@ public class SimdBackend : CpuBackend {
 	}
 
 	protected override void CpuSigmoidBackward(CpuTensor<float> input, CpuTensor<float> gradient) {
-		int length = input.Shape[0];
+		int length = input.Length;
 		
 		ReadOnlySpan<float> inputSpan = input.Data;
 		Span<float> gradientSpan = gradient.Data;
@@ -456,7 +456,7 @@ public class SimdBackend : CpuBackend {
 
 	
 	protected override void CpuMseCalculation(CpuTensor<float> activation, CpuValue<int> label, float a, CpuValue<float> lossOut) {
-		int length = activation.Shape[0];
+		int length = activation.Length;
 
 		ReadOnlySpan<float> activationSpan = activation.Data;
 		
@@ -493,7 +493,7 @@ public class SimdBackend : CpuBackend {
 	}
 
 	protected override void CpuMseBackward(CpuTensor<float> input, CpuTensor<float> expectedInput, float a, CpuTensor<float> output) {
-		int length = input.Shape[0];
+		int length = input.Length;
 		
 		ReadOnlySpan<float> inputSpan = input.Data;
 		ReadOnlySpan<float> expectedInputSpan = expectedInput.Data;
@@ -521,7 +521,7 @@ public class SimdBackend : CpuBackend {
 	}
 
 	protected override void CpuCrossEntropyBackward(CpuTensor<float> input, CpuTensor<float> expectedInput, CpuTensor<float> output) {
-		int length = input.Shape[0];
+		int length = input.Length;
 			
 		ReadOnlySpan<float> inputSpan = input.Data;
 		ReadOnlySpan<float> expectedValuesSpan = expectedInput.Data;

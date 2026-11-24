@@ -61,9 +61,8 @@ public class NetworkFile(string filepath) {
         }
 
         uint version;
-        if ((version = reader.ReadUInt32()) != Version) {
-            Console.Error.WriteLine($"Warning: Unsupported network file version {version}, this build supports version {Version}");
-        }
+        if ((version = reader.ReadUInt32()) != Version)
+            throw new InvalidDataException($"Unsupported network file version {version}, this build supports version {Version}");
         
         float accuracy = reader.ReadSingle();
         ValidateAccuracy(accuracy);

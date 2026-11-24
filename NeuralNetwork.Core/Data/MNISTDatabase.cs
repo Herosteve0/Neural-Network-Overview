@@ -25,12 +25,12 @@ public class MnistDatabase : IDisposable {
     }
     
     public static DataSample<float>[] LoadAllTrainingData() {
-        MnistDatabase database = new MnistDatabase(MnistSets.Training);
+        using MnistDatabase database = new MnistDatabase(MnistSets.Training);
         return database.ReadBatch(database._size);
     }
 
     public static DataSample<float>[] LoadAllTestingData() {
-        MnistDatabase database = new MnistDatabase(MnistSets.Testing);
+        using MnistDatabase database = new MnistDatabase(MnistSets.Testing);
         return database.ReadBatch(database._size);
     }
 

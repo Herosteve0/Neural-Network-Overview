@@ -103,7 +103,7 @@ public abstract class CpuBackend : IBackend, IMatrixBackend, IElementwiseBackend
 		int length = maskOut.Length;
 		
 		for (int i = 0; i < length; i++) {
-			cpuMaskOut[i] = random.NextSingle() > dropoutChance
+			cpuMaskOut[i] = random.NextSingle() >= dropoutChance
 				? inverted
 				: 0f;
 		}

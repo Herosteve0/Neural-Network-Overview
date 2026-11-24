@@ -34,6 +34,7 @@ public interface ITrainableLayer {
 
 public abstract class BaseLayer(int size) : IDisposable {
     public int NeuronCount { get; protected set; } = size;
+    
     protected IBackend Backend { get; private set; }
     private bool _initialized;
     protected bool Disposed;
@@ -91,6 +92,8 @@ public abstract class BaseLayer(int size) : IDisposable {
             _ => throw new InvalidDataException($"Unknown layer type '{type}' in network data.")
         };
     }
+
+    public abstract void ValidateLayer(int index, int inputSize);
     
     public abstract void Dispose();
     

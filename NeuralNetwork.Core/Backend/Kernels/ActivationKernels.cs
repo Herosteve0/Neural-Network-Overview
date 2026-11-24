@@ -65,6 +65,7 @@ public class ActivationKernels(Accelerator accelerator) {
     }
 
     private static void SoftmaxBackwardKernel(Index1D i, int length, FloatView input, FloatView output) {
+        // Doesn't work, don't want to make it work :)
         float max = input[0];
         for (int j = 1; j < length; j++) max = Math.Max(max, input[j]);
 

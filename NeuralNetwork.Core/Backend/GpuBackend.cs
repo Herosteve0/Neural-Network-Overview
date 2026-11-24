@@ -241,7 +241,7 @@ public class GpuBackend : IBackend, IMatrixBackend, IElementwiseBackend, IRandom
 		
 		float[] values = new float[length];
 		for (int i = 0; i < length; i++) {
-			values[i] = random.NextSingle() > dropoutChance
+			values[i] = random.NextSingle() >= dropoutChance
 				? inverted
 				: 0f;
 		}
@@ -255,7 +255,7 @@ public class GpuBackend : IBackend, IMatrixBackend, IElementwiseBackend, IRandom
 		GpuTensor<float> gInput = (GpuTensor<float>)input;
 		GpuTensor<float> gOutput = (GpuTensor<float>)output;
 
-		int outputSize = output.Shape[0];
+		int outputSize = output.Length;
 
 		_activationKernels.ReLuForward(
 			outputSize,
@@ -268,7 +268,7 @@ public class GpuBackend : IBackend, IMatrixBackend, IElementwiseBackend, IRandom
 		GpuTensor<float> gInput = (GpuTensor<float>)input;
 		GpuTensor<float> gOutput = (GpuTensor<float>)output;
 
-		int outputSize = output.Shape[0];
+		int outputSize = output.Length;
 
 		_activationKernels.ReLuBackward(
 			outputSize,
@@ -281,7 +281,7 @@ public class GpuBackend : IBackend, IMatrixBackend, IElementwiseBackend, IRandom
 		GpuTensor<float> gInput = (GpuTensor<float>)input;
 		GpuTensor<float> gOutput = (GpuTensor<float>)output;
 
-		int outputSize = output.Shape[0];
+		int outputSize = output.Length;
 
 		_activationKernels.LeakyReLuForward(
 			outputSize,
@@ -295,7 +295,7 @@ public class GpuBackend : IBackend, IMatrixBackend, IElementwiseBackend, IRandom
 		GpuTensor<float> gInput = (GpuTensor<float>)input;
 		GpuTensor<float> gOutput = (GpuTensor<float>)output;
 
-		int outputSize = output.Shape[0];
+		int outputSize = output.Length;
 
 		_activationKernels.LeakyReLuBackward(
 			outputSize,
@@ -309,7 +309,7 @@ public class GpuBackend : IBackend, IMatrixBackend, IElementwiseBackend, IRandom
 		GpuTensor<float> gInput = (GpuTensor<float>)input;
 		GpuTensor<float> gOutput = (GpuTensor<float>)output;
 
-		int outputSize = output.Shape[0];
+		int outputSize = output.Length;
 
 		_activationKernels.SigmoidForward(
 			outputSize,
@@ -322,7 +322,7 @@ public class GpuBackend : IBackend, IMatrixBackend, IElementwiseBackend, IRandom
 		GpuTensor<float> gInput = (GpuTensor<float>)input;
 		GpuTensor<float> gOutput = (GpuTensor<float>)output;
 
-		int outputSize = output.Shape[0];
+		int outputSize = output.Length;
 
 		_activationKernels.SigmoidBackward(
 			outputSize,
@@ -336,32 +336,38 @@ public class GpuBackend : IBackend, IMatrixBackend, IElementwiseBackend, IRandom
 		GpuTensor<float> gOutput = (GpuTensor<float>)output;
 		GpuValue<int> gPredictionOut = (GpuValue<int>)predictionOut;
 
-		int outputSize = output.Shape[0];
+		int outputSize = output.Length;
 
-		// max, so we avoid large values, as well as the prediction the network made
-		GpuValue<float> value = (GpuValue<float>)CreateValue(0f);
-		_reductionKernels.MaxIndex(gInput, value, gPredictionOut);
+		GpuValue<float> value = null;
+		try {
+			// max, so we avoid large values, as well as the prediction the network made
+			value = (GpuValue<float>)CreateValue(0f);
+			_reductionKernels.MaxIndex(gInput, value, gPredictionOut);
 
-		// e^(z[i] - max) for all i, where i = row
-		_activationKernels.SoftmaxExp(outputSize, gInput.View, value.View, gOutput.View);
+			// e^(z[i] - max) for all i, where i = row
+			_activationKernels.SoftmaxExp(outputSize, gInput.View, value.View, gOutput.View);
 
-		// Σ e^z[i] for all i
-		_reductionKernels.Sum(gOutput, value);
+			// Σ e^z[i] for all i
+			_reductionKernels.Sum(gOutput, value);
 
-		// e^z[i] / sum, aka the soft max
-		_activationKernels.SoftmaxDivide(outputSize, gOutput.View, value.View);
+			// e^z[i] / sum, aka the soft max
+			_activationKernels.SoftmaxDivide(outputSize, gOutput.View, value.View);
 
-		// Synchronize because value will be disposed.
-		_accelerator.Synchronize();
-
-		value.Dispose();
+			// Synchronize because value will be disposed.
+			_accelerator.Synchronize();
+		} finally {
+			try {
+				_accelerator.Synchronize();
+			} catch {  /* Ignored */ }
+			value?.Dispose();
+		}
 	}
 
 	public void Softmax_Backward(ITensor<float> input, ITensor<float> output) {
 		GpuTensor<float> gInput = (GpuTensor<float>)input;
 		GpuTensor<float> gOutput = (GpuTensor<float>)output;
 
-		int length = gInput.Shape[0];
+		int length = gInput.Length;
 
 		_activationKernels.SoftMaxBackward(length, length, gInput.View, gOutput.View);
 	}
@@ -389,7 +395,7 @@ public class GpuBackend : IBackend, IMatrixBackend, IElementwiseBackend, IRandom
 		GpuTensor<float> gExpectedInput = (GpuTensor<float>)expectedInput;
 		GpuTensor<float> gOutput = (GpuTensor<float>)output;
 
-		int outputSize = output.Shape[0];
+		int outputSize = output.Length;
 
 		_lossKernels.MseBackward(
 			outputSize,
@@ -417,7 +423,7 @@ public class GpuBackend : IBackend, IMatrixBackend, IElementwiseBackend, IRandom
 		GpuTensor<float> gExpectedValues = (GpuTensor<float>)expectedValues;
 		GpuTensor<float> gDeltaOut = (GpuTensor<float>)deltaOut;
 
-		int outputSize = deltaOut.Shape[0];
+		int outputSize = deltaOut.Length;
 
 		_lossKernels.CrossEntropyBackward(
 			outputSize,

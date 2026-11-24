@@ -36,8 +36,8 @@ public abstract class BaseTensor<T> : ITensor<T> where T : unmanaged {
     private readonly int[] _stride;
 
     public int Rank => _shape.Length;
-    public IReadOnlyList<int> Shape => _shape;
-    public IReadOnlyList<int> Strides => _stride;
+    public IReadOnlyList<int> Shape => _shape.AsReadOnly();
+    public IReadOnlyList<int> Strides => _stride.AsReadOnly();
     public int Length { get; }
 
     protected BaseTensor(params int[] shape) {
@@ -49,7 +49,7 @@ public abstract class BaseTensor<T> : ITensor<T> where T : unmanaged {
         Length = 1;
         for (int i = _stride.Length - 1; i >= 0; i--) {
             _stride[i] = Length;
-            Length *= _shape[i];
+            Length = checked(Length * _shape[i]);
         }
     }
 

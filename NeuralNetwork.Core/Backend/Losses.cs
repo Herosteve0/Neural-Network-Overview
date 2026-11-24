@@ -5,7 +5,12 @@ namespace NeuralNetwork.Core.Backend;
 
 public interface ILoss {
     void Initialize(IBackend backend);
-	
+
+    protected static ILossBackend ReadBackend(IBackend backend) {
+        return backend as ILossBackend
+               ?? throw new NotSupportedException($"The selected backend does not implement loss operations.");
+    }
+    
     void Calculate(ITensor<float> activation, ISingleValue<int> label, ISingleValue<float> lossOut);
     void Backward(ITensor<float> input, ITensor<float> expectedInput, ITensor<float> output);
 }
@@ -14,7 +19,7 @@ public sealed class MeanSquaredError(int a = 1) : ILoss {
     private ILossBackend _backend;
 
     public void Initialize(IBackend backend) {
-        _backend = backend as ILossBackend;
+        _backend = ILoss.ReadBackend(backend);
     }
 
     public void Calculate(ITensor<float> activation, ISingleValue<int> label, ISingleValue<float> lossOut) {
@@ -30,7 +35,7 @@ public sealed class CrossEntropy : ILoss {
     private ILossBackend _backend;
 
     public void Initialize(IBackend backend) {
-        _backend = backend as ILossBackend;
+        _backend = ILoss.ReadBackend(backend);
     }
 
     public void Calculate(ITensor<float> activation, ISingleValue<int> label, ISingleValue<float> lossOut) {

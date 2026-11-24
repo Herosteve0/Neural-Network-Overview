@@ -43,6 +43,8 @@ public class InputLayer(int size) : BaseLayer(size), ILayer {
         return layer;
     }
 
+    public override void ValidateLayer(int index, int inputSize) { }
+
     public override void Dispose() {
         if (Disposed) return;
         Disposed = true;

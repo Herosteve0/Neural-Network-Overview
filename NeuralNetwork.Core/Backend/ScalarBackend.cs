@@ -100,14 +100,14 @@ public class ScalarBackend : CpuBackend {
 
 
 	protected override void CpuReLuForward(CpuTensor<float> input, CpuTensor<float> output) {
-		int length = input.Shape[0];
+		int length = input.Length;
 		
 		for (int i = 0; i < length; i++) {
 			output[i] = Math.Max(input[i], 0);
 		}
 	}
 	protected override void CpuReLuBackward(CpuTensor<float> input, CpuTensor<float> gradient) {
-		int length = input.Shape[0];
+		int length = input.Length;
 		
 		for (int i = 0; i < length; i++) {
 			if (input[i] >= 0) continue;
@@ -116,14 +116,14 @@ public class ScalarBackend : CpuBackend {
 	}
 
 	protected override void CpuLeakyReLuForward(CpuTensor<float> input, float a, CpuTensor<float> output) {
-		int length = input.Shape[0];
+		int length = input.Length;
 		
 		for (int i = 0; i < length; i++) {
 			output[i] = input[i] * (input[i] > 0 ? 1f : a);
 		}
 	}
 	protected override void CpuLeakyReLuBackward(CpuTensor<float> input, float a, CpuTensor<float> gradient) {
-		int length = input.Shape[0];
+		int length = input.Length;
 		
 		for (int i = 0; i < length; i++) {
 			gradient[i] *= input[i] > 0 ? 1f : a;
@@ -132,7 +132,7 @@ public class ScalarBackend : CpuBackend {
 
 	protected override void CpuSoftmaxForward(CpuTensor<float> input, CpuTensor<float> output,
 		CpuValue<int> predictionOut) {
-		int length = input.Shape[0];
+		int length = input.Length;
 		
 		int maxIndex = 0;
 		for (int i = 1; i < length; i++) {
@@ -157,18 +157,16 @@ public class ScalarBackend : CpuBackend {
 	}
 
 	protected override void CpuSoftmaxBackward(CpuTensor<float> input, CpuTensor<float> gradient) {
-		int length = input.Shape[0];
+		int length = input.Length;
 
 		float max = input[0];
 		for (int i = 1; i < length; i++) {
 			max = Math.Max(input[i], max);
 		}
 
-		float[] e = new float[length];
-		
 		float sum = 0f;
 		for (int i = 0; i < length; i++) {
-			sum += e[i];
+			sum += (float)Math.Exp(input[i]);
 		}
 
 		float dot = 0f;
@@ -184,7 +182,7 @@ public class ScalarBackend : CpuBackend {
 	}
 
 	protected override void CpuSigmoidForward(CpuTensor<float> input, CpuTensor<float> output) {
-		int length = input.Shape[0];
+		int length = input.Length;
 
 		for (int i = 0; i < length; i++) {
 			float e = (float)Math.Exp(-input[i]);
@@ -192,7 +190,7 @@ public class ScalarBackend : CpuBackend {
 		}
 	}
 	protected override void CpuSigmoidBackward(CpuTensor<float> input, CpuTensor<float> gradient) {
-		int length = input.Shape[0];
+		int length = input.Length;
 
 		for (int i = 0; i < length; i++) {
 			float e = (float)Math.Exp(-Math.Abs(input[i]));
@@ -204,7 +202,7 @@ public class ScalarBackend : CpuBackend {
 	protected override void CpuMseCalculation(
 		CpuTensor<float> activation, CpuValue<int> label, float a, CpuValue<float> lossOut
 	) {
-		int length = activation.Shape[0];
+		int length = activation.Length;
 
 		lossOut.Value = 0;
 		for (int i = 0; i < length; i++) {
@@ -218,7 +216,7 @@ public class ScalarBackend : CpuBackend {
 	protected override void CpuMseBackward(
 		CpuTensor<float> input, CpuTensor<float> expectedInput, float a, CpuTensor<float> output
 	) {
-		int length = input.Shape[0];
+		int length = input.Length;
 
 		for (int i = 0; i < length; i++) {
 			output[i] = 2 * a * (input[i] - expectedInput[i]);
@@ -235,7 +233,7 @@ public class ScalarBackend : CpuBackend {
 	protected override void CpuCrossEntropyBackward(
 		CpuTensor<float> input, CpuTensor<float> expectedInput, CpuTensor<float> output
 	) {
-		int length = input.Shape[0];
+		int length = input.Length;
 
 		for (int i = 0; i < length; i++) {
 			output[i] = input[i] - expectedInput[i];

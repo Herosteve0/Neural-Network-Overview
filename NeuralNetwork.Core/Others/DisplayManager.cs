@@ -51,11 +51,9 @@ public static class DisplayManager {
         FullyConnectedLayer firstDenseLayer = network.Layers.OfType<FullyConnectedLayer>().FirstOrDefault()
             ?? throw new InvalidOperationException($"The network does not contain a fully connected layer.");
         
-        ReadOnlySpan<float> weights = network.Backend.Read(firstDenseLayer.Weights);
-        int step = firstDenseLayer.Weights.Shape[1];
-        int count = 0;
-        for (int i = 0; i < weights.Length; i += step) {
-            CreateWeightImage(weights.Slice(i, step).ToArray(), $"{filepath}/Weight-{count++}.png");
+        float[][] weights = firstDenseLayer.GetWeights();
+        for (int i = 0; i < weights.Length; i++) {
+            CreateWeightImage(weights[i], $"{filepath}/Weight-{i}.png");
         }
     }
     private static void CreateWeightImage(float[] data, string filepath) {
